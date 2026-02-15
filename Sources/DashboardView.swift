@@ -213,20 +213,21 @@ struct DashboardView: View {
 
             Divider()
 
-            HStack(spacing: 16) {
-                Text(stat.title)
-                Spacer()
-                Text(viewModel.formatCurrency(stat.umsatz))
-                    .fontWeight(.medium)
-                    .monospacedDigit()
-                    .frame(width: 140, alignment: .trailing)
-                Text(viewModel.formatCurrency(stat.einnahmen))
-                    .fontWeight(.semibold)
-                    .monospacedDigit()
-                    .frame(width: 140, alignment: .trailing)
+            ForEach([stat]) { stat in
+                HStack(spacing: 16) {
+                    Text(stat.title)
+                    Spacer()
+                    Text(viewModel.formatCurrency(stat.umsatz))
+                        .fontWeight(.medium)
+                        .frame(width: 140, alignment: .trailing)
+                    Text(viewModel.formatCurrency(stat.einnahmen))
+                        .fontWeight(.semibold)
+                        .frame(width: 140, alignment: .trailing)
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(.vertical, 2)
             }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
         }
         .padding(16)
         .background(.regularMaterial)
@@ -242,8 +243,6 @@ private struct KPIButtonCard: View {
     let card: MetricCard
     let action: () -> Void
 
-    @State private var isHovered = false
-
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 8) {
@@ -252,12 +251,11 @@ private struct KPIButtonCard: View {
                     .foregroundStyle(.secondary)
                 Text(card.value)
                     .font(.title3.weight(.semibold))
-                    .monospacedDigit()
                 Text(card.note)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: .infinity, minHeight: 116, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 110, alignment: .leading)
             .padding(16)
             .background(.regularMaterial)
             .overlay(
@@ -265,16 +263,9 @@ private struct KPIButtonCard: View {
                     .stroke(Color.primary.opacity(0.08), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .shadow(color: .black.opacity(isHovered ? 0.08 : 0.05), radius: isHovered ? 14 : 10, x: 0, y: isHovered ? 8 : 6)
-            .scaleEffect(isHovered ? 1.01 : 1)
+            .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 6)
         }
         .buttonStyle(.plain)
-        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .onHover { hovering in
-            withAnimation(.easeOut(duration: 0.16)) {
-                isHovered = hovering
-            }
-        }
     }
 }
 
@@ -522,8 +513,7 @@ private struct FixkostenSheet: View {
                         Image(systemName: "xmark")
                     }
                     .buttonStyle(.bordered)
-                    .help("Schließen (Esc)")
-                    .keyboardShortcut(.cancelAction)
+                    .help("Schließen")
                 }
 
                 Text("Doppelklick auf eine Zeile, um sie zu bearbeiten.")
@@ -764,7 +754,7 @@ private struct ModalSheetContainer<Content: View>: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text(title)
-                    .font(.title3.weight(.semibold))
+                    .font(.title3.bold())
                 Spacer()
                 if let onClose {
                     Button(action: onClose) {
@@ -772,9 +762,8 @@ private struct ModalSheetContainer<Content: View>: View {
                     }
                     .buttonStyle(.plain)
                     .padding(8)
-                    .background(Color.primary.opacity(0.06), in: Circle())
-                    .help("Schließen (Esc)")
-                    .keyboardShortcut(.cancelAction)
+                    .background(Color.primary.opacity(0.08), in: Circle())
+                    .help("Schließen")
                 }
             }
 
