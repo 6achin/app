@@ -3,11 +3,12 @@ import AppKit
 
 struct RootContentView: View {
     @ObservedObject var auth: AuthViewModel
+    @StateObject private var dashboardViewModel = DashboardViewModel()
 
     var body: some View {
         Group {
             if auth.isAuthenticated {
-                DashboardView(viewModel: DashboardViewModel(), onLogout: auth.logout)
+                DashboardView(viewModel: dashboardViewModel, onLogout: auth.logout)
             } else {
                 LoginView(viewModel: auth)
             }

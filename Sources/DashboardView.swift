@@ -4,114 +4,258 @@ struct DashboardView: View {
     @ObservedObject var viewModel: DashboardViewModel
     let onLogout: () -> Void
 
-    @State private var selectedCard: MetricCard?
-    @State private var editedTitle = ""
-    @State private var editedValue = ""
-    @State private var editedNote = ""
+    @State private var showFixkostenSheet = false
 
     var body: some View {
-        NavigationSplitView {
-            List {
-                Button("Dashboard") {}
-                Button("Umsatz") {}
-                Button("Ausgaben") {}
-                Button("Berichte") {}
-            }
-            .buttonStyle(.plain)
-            .navigationTitle("Menü")
-        } detail: {
-            VStack(alignment: .leading, spacing: 22) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Geschäftsübersicht")
-                            .font(.largeTitle.bold())
-                        Text("Minimalistisch, klickbar und editierbar")
-                            .foregroundStyle(.secondary)
-                    }
+        ZStack {
+            LinearGradient(
+                colors: [Color(nsColor: .windowBackgroundColor), Color.blue.opacity(0.08)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-                    Spacer()
-
-                    Button("Hinzufügen") {
-                        viewModel.addCard()
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    Button("Abmelden", action: onLogout)
+            NavigationSplitView {
+                List {
+                    Label("Dashboard", systemImage: "rectangle.grid.2x2")
+                    Label("Umsatz", systemImage: "chart.bar.xaxis")
+                    Label("Kosten", systemImage: "eurosign.circle")
+                    Label("Berichte", systemImage: "doc.text")
                 }
+                .navigationTitle("Menü")
+            } detail: {
+                VStack(alignment: .leading, spacing: 18) {
+                    header
 
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                    ForEach(viewModel.cards) { card in
-                        Button {
-                            selectedCard = card
-                            editedTitle = card.title
-                            editedValue = card.value
-                            editedNote = card.note
-                        } label: {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(card.title)
-                                    .foregroundStyle(.secondary)
-                                Text(card.value)
-                                    .font(.title3.bold())
-                                Text(card.note)
-                                    .font(.callout)
-                                    .foregroundStyle(.blue)
+                    ScrollView {
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
+                            ForEach(viewModel.cards) { card in
+                                KPIButtonCard(card: card) {
+                                    if card.type == .fixkosten {
+                                        showFixkostenSheet = true
+                                    }
+                                }
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(16)
-                            .background(Color(nsColor: .controlBackgroundColor))
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Letzte Buchungen (editierbar)")
-                        .font(.headline)
-
-                    List {
-                        ForEach($viewModel.transactions) { $item in
-                            HStack(spacing: 12) {
-                                TextField("Datum", text: $item.date)
-                                TextField("Kategorie", text: $item.category)
-                                TextField("Betrag", text: $item.amount)
-                                TextField("Status", text: $item.status)
-                            }
-                            .textFieldStyle(.roundedBorder)
-                            .padding(.vertical, 4)
                         }
                     }
-                    .frame(minHeight: 250)
-                }
+                    .scrollIndicators(.hidden)
 
-                Spacer()
+                    transactionsSection
+                }
+                .padding(24)
             }
-            .padding(24)
         }
-        .sheet(item: $selectedCard) { card in
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Karte bearbeiten")
-                    .font(.headline)
+        .sheet(isPresented: $showFixkostenSheet) {
+            FixkostenSheet(viewModel: viewModel)
+        }
+        .onAppear {
+            viewModel.recalculateFixkostenCard()
+        }
+    }
 
-                TextField("Titel", text: $editedTitle)
-                    .textFieldStyle(.roundedBorder)
-                TextField("Wert", text: $editedValue)
-                    .textFieldStyle(.roundedBorder)
-                TextField("Notiz", text: $editedNote)
-                    .textFieldStyle(.roundedBorder)
+    private var header: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Geschäfts-Dashboard")
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                Text("Schnell, übersichtlich und editierbar")
+                    .foregroundStyle(.secondary)
+            }
 
+            Spacer()
+
+            Button {
+                viewModel.addCard()
+            } label: {
+                Label("Hinzufügen", systemImage: "plus")
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button("Abmelden", action: onLogout)
+                .buttonStyle(.bordered)
+        }
+    }
+
+    private var transactionsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Letzte Buchungen")
+                .font(.headline)
+
+            List {
+                ForEach($viewModel.transactions) { $item in
+                    HStack(spacing: 8) {
+                        TextField("Datum", text: $item.date)
+                        TextField("Kategorie", text: $item.category)
+                        TextField("Betrag", text: $item.amount)
+                        TextField("Status", text: $item.status)
+                    }
+                    .textFieldStyle(.roundedBorder)
+                    .padding(.vertical, 2)
+                }
+            }
+            .frame(minHeight: 220)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+    }
+}
+
+private struct KPIButtonCard: View {
+    let card: MetricCard
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
+                    Text(card.title)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                     Spacer()
-                    Button("Abbrechen") { selectedCard = nil }
-                    Button("Speichern") {
-                        viewModel.updateCard(id: card.id, title: editedTitle, value: editedValue, note: editedNote)
-                        selectedCard = nil
+                    if card.type == .fixkosten {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .foregroundStyle(.blue)
+                    }
+                }
+
+                Text(card.value)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.primary)
+
+                Text(card.note)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+                    .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct FixkostenSheet: View {
+    @ObservedObject var viewModel: DashboardViewModel
+    @State private var showAddForm = false
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("Fixkosten")
+                        .font(.title.bold())
+                    Spacer()
+                    Button {
+                        showAddForm = true
+                    } label: {
+                        Label("Hinzufügen", systemImage: "plus")
                     }
                     .buttonStyle(.borderedProminent)
+                }
+
+                List {
+                    ForEach(viewModel.fixkostenEntries) { entry in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(entry.name)
+                                .font(.headline)
+                            Text(entry.description)
+                                .foregroundStyle(.secondary)
+                            Text("Netto: \(viewModel.formatCurrency(entry.netAmount)) · MwSt 19%: \(viewModel.formatCurrency(entry.vatAmount)) · Brutto: \(viewModel.formatCurrency(entry.grossAmount))")
+                                .font(.callout)
+                            Text("Datum: \(entry.bookingDate.formatted(date: .numeric, time: .omitted)) · Automatisch: \(entry.automaticDebit ? "Ja" : "Nein")")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
                 }
             }
             .padding(20)
-            .frame(width: 420)
         }
+        .frame(minWidth: 760, minHeight: 520)
+        .sheet(isPresented: $showAddForm) {
+            AddFixkostenForm(viewModel: viewModel)
+        }
+    }
+}
+
+private struct AddFixkostenForm: View {
+    @ObservedObject var viewModel: DashboardViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var name = ""
+    @State private var bookingDate = Date()
+    @State private var automaticDebit = true
+    @State private var netInput = ""
+    @State private var description = ""
+
+    private var netAmount: Double {
+        Double(netInput.replacingOccurrences(of: ",", with: ".")) ?? 0
+    }
+
+    private var vatAmount: Double {
+        netAmount * 0.19
+    }
+
+    private var grossAmount: Double {
+        netAmount + vatAmount
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Neue Fixkosten")
+                .font(.title3.bold())
+
+            TextField("Name", text: $name)
+                .textFieldStyle(.roundedBorder)
+
+            DatePicker("Datum", selection: $bookingDate, displayedComponents: .date)
+
+            Toggle("Automatische Abbuchung", isOn: $automaticDebit)
+
+            TextField("Summe Netto", text: $netInput)
+                .textFieldStyle(.roundedBorder)
+
+            HStack {
+                Text("MwSt 19%")
+                Spacer()
+                Text(viewModel.formatCurrency(vatAmount))
+            }
+
+            HStack {
+                Text("Brutto")
+                Spacer()
+                Text(viewModel.formatCurrency(grossAmount))
+                    .fontWeight(.semibold)
+            }
+
+            TextField("Beschreibung", text: $description, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .lineLimit(2...4)
+
+            HStack {
+                Spacer()
+                Button("Abbrechen") { dismiss() }
+
+                Button("Speichern") {
+                    let entry = FixkostenEntry(
+                        name: name.isEmpty ? "Neue Position" : name,
+                        bookingDate: bookingDate,
+                        automaticDebit: automaticDebit,
+                        netAmount: netAmount,
+                        description: description
+                    )
+                    viewModel.addFixkostenEntry(entry)
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(netAmount <= 0)
+            }
+        }
+        .padding(20)
+        .frame(width: 460)
     }
 }

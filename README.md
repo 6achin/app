@@ -1,6 +1,6 @@
 # BusinessAccountingApp (macOS)
 
-Minimalistische macOS-App für Business-Buchhaltung mit Login und Dashboard.
+Schnelle, minimalistische macOS-App für Business-Buchhaltung mit Login und Dashboard.
 
 ## Start auf macOS
 
@@ -14,8 +14,15 @@ swift run BusinessAccountingApp
 
 ## Demo-Logins
 
-- `inhaber` / `12345`
+- `bachin` / `12345` (Admin)
 - `manager` / `biz2026`
+
+## Neue Funktion: Fixkosten-Workflow
+
+- Auf die Karte **Fixkosten** klicken.
+- Mit **Hinzufügen (+)** eine neue Fixkosten-Position anlegen.
+- Felder: Name, Datum, automatische Abbuchung (Ja/Nein), Summe Netto, Beschreibung.
+- **MwSt (19%)** und **Brutto** werden automatisch aus Netto berechnet.
 
 ## Hinweis zur Container-Umgebung
 

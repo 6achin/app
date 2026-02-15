@@ -7,7 +7,7 @@ final class AuthViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     private let allowedUsers = [
-        "inhaber": "12345",
+        "bachin": "12345",
         "manager": "biz2026"
     ]
 

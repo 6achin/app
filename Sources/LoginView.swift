@@ -5,14 +5,22 @@ struct LoginView: View {
 
     var body: some View {
         ZStack {
-            Color(nsColor: .windowBackgroundColor)
-                .ignoresSafeArea()
+            LinearGradient(
+                colors: [Color(nsColor: .windowBackgroundColor), Color.indigo.opacity(0.16)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-            VStack(spacing: 20) {
+            VStack(spacing: 22) {
+                Image(systemName: "building.2.crop.circle")
+                    .font(.system(size: 46))
+                    .foregroundStyle(.indigo)
+
                 Text("Business Buchhaltung")
-                    .font(.system(size: 28, weight: .semibold))
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
 
-                Text("Anmeldung")
+                Text("Sicher anmelden")
                     .foregroundStyle(.secondary)
 
                 VStack(spacing: 14) {
@@ -32,12 +40,20 @@ struct LoginView: View {
 
                 Button("Einloggen", action: viewModel.login)
                     .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
                     .frame(maxWidth: .infinity)
+
+                Text("Admin: bachin · Passwort: 12345")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
             .padding(30)
-            .frame(width: 380)
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .frame(width: 420)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .shadow(color: .black.opacity(0.15), radius: 18, x: 0, y: 10)
+            )
         }
     }
 }
