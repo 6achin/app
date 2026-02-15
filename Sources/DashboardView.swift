@@ -226,10 +226,19 @@ private struct KPIButtonCard: View {
     }
 }
 
+private enum AddInvoiceStep: String, CaseIterable, Identifiable {
+    case basis = "Basis"
+    case kunde = "Kunde"
+    case betrag = "Betrag & Zahlung"
+
+    var id: String { rawValue }
+}
+
 private struct AddInvoiceSheet: View {
     @ObservedObject var viewModel: DashboardViewModel
     @Environment(\.dismiss) private var dismiss
 
+    @State private var step: AddInvoiceStep = .basis
     @State private var source: InvoiceSource = .pdf
     @State private var type: InvoiceType = .ausgangsrechnung
     @State private var title = ""
@@ -285,8 +294,8 @@ private struct AddInvoiceSheet: View {
 
     var body: some View {
         ModalSheetContainer(title: "Neue Rechnung", onClose: { dismiss() }) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 12) {
                     Picker("Quelle", selection: $source) {
                         ForEach(InvoiceSource.allCases) { value in
                             Text(value.rawValue).tag(value)
@@ -300,103 +309,85 @@ private struct AddInvoiceSheet: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                }
 
-                    if source == .pdf {
-                        HStack {
-                            Text(pickedPDF.isEmpty ? "Keine PDF ausgewählt" : pickedPDF)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                            Spacer()
-                            Button("PDF wählen") {
-                                let panel = NSOpenPanel()
-                                panel.allowedContentTypes = [.pdf]
-                                panel.canChooseFiles = true
-                                panel.canChooseDirectories = false
-                                panel.allowsMultipleSelection = false
-                                if panel.runModal() == .OK, let url = panel.url {
-                                    pickedPDF = url.lastPathComponent
-                                    if title.isEmpty { title = url.deletingPathExtension().lastPathComponent }
-                                    #if canImport(PDFKit)
-                                    if let parsed = viewModel.importPDFInvoice(from: url) {
-                                        type = .ausgangsrechnung
-                                        title = parsed.title
-                                        importedPDFFileName = parsed.storedPDFFileName
-                                        if let net = parsed.netAmount {
-                                            netInput = String(format: "%.2f", net).replacingOccurrences(of: ".", with: ",")
-                                        }
-                                        if let gross = parsed.grossAmount {
-                                            grossInput = String(format: "%.2f", gross).replacingOccurrences(of: ".", with: ",")
-                                        }
-                                        if let parsedVatRate = parsed.vatRate {
-                                            vatRate = parsedVatRate
-                                        }
-                                        issuedAt = parsed.issuedAt ?? Date()
-                                        referenceNumber = parsed.referenceNumber ?? ""
-                                        invoiceNumber = parsed.invoiceNumber ?? ""
-                                        customerNumber = parsed.customerNumber ?? ""
-                                        ustIdNr = parsed.ustIdNr ?? ""
-                                        taxNumber = parsed.taxNumber ?? ""
-                                        customerName = parsed.customerName ?? ""
-                                        customerPhone = parsed.customerPhone ?? ""
-                                        if let fullAddress = parsed.customerAddress {
-                                            let parts = fullAddress.split(separator: ",", maxSplits: 1).map { String($0).trimmingCharacters(in: .whitespaces) }
-                                            customerStreet = parts.first ?? ""
-                                            customerPostalCity = parts.count > 1 ? parts[1] : ""
-                                        }
-                                        paymentTermDaysInput = parsed.paymentTermDays.map(String.init) ?? paymentTermDaysInput
-                                        paymentTermsText = parsed.paymentTermsText ?? paymentTermsText
-                                        parsedLineItemsCount = parsed.lineItems.count
-                                    }
-                                    #endif
-                                }
-                            }
+                Picker("Schritt", selection: $step) {
+                    ForEach(AddInvoiceStep.allCases) { value in
+                        Text(value.rawValue).tag(value)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Divider()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        switch step {
+                        case .basis:
+                            basisStep
+                        case .kunde:
+                            customerStep
+                        case .betrag:
+                            amountStep
                         }
                     }
+                }
 
-                    GroupBox("Rechnungsdaten") {
-                        VStack(spacing: 8) {
-                            TextField("Bezug", text: $referenceNumber).modalEditorStyle()
-                            TextField("Rechnungs-Nr.", text: $invoiceNumber).modalEditorStyle()
-                            DatePicker("Rechnungsdatum", selection: $issuedAt, displayedComponents: .date)
-                            TextField("Kunden-Nr.", text: $customerNumber).modalEditorStyle()
-                            TextField("USt-IdNr.", text: $ustIdNr).modalEditorStyle()
-                            TextField("Steuernummer", text: $taxNumber).modalEditorStyle()
-                            TextField("Bezeichnung", text: $title).modalEditorStyle()
-                        }
+                Divider()
+
+                HStack {
+                    if let due = computedDueDateText {
+                        Label("Fällig am: \(due)", systemImage: "calendar.badge.clock")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
 
-                    GroupBox("Firma/Kunde") {
-                        VStack(spacing: 8) {
-                            TextField("Name", text: $customerName).modalEditorStyle()
-                            TextField("Straße und Hausnummer", text: $customerStreet).modalEditorStyle()
-                            TextField("PLZ und Stadt", text: $customerPostalCity).modalEditorStyle()
-                            TextField("Telefon / WhatsApp", text: $customerPhone).modalEditorStyle()
-                        }
-                    }
+                    Spacer()
 
-                    GroupBox("Beträge") {
-                        VStack(spacing: 8) {
-                            TextField("Zwischensumme (netto)", text: $netInput).modalEditorStyle()
-                            Picker("Ust.", selection: $vatRate) {
-                                Text("19%").tag(0.19)
-                                Text("7%").tag(0.07)
-                                Text("0%").tag(0.0)
-                            }
-                            .pickerStyle(.segmented)
-                            TextField("Gesamtbetrag", text: $grossInput).modalEditorStyle()
-                        }
+                    Button("Abbrechen", role: .cancel) { dismiss() }
+                    Button("Speichern") {
+                        let normalizedNet = netAmount > 0 ? netAmount : (grossAmountInput > 0 ? grossAmountInput / (1 + vatRate) : 0)
+                        let invoice = InvoiceEntry(
+                            title: title.isEmpty ? "Neue Rechnung" : title,
+                            source: source,
+                            type: type,
+                            netAmount: normalizedNet,
+                            vatRate: vatRate,
+                            isPaid: false,
+                            issuedAt: issuedAt,
+                            referenceNumber: referenceNumber.isEmpty ? nil : referenceNumber,
+                            invoiceNumber: invoiceNumber.isEmpty ? nil : invoiceNumber,
+                            customerNumber: customerNumber.isEmpty ? nil : customerNumber,
+                            ustIdNr: ustIdNr.isEmpty ? nil : ustIdNr,
+                            taxNumber: taxNumber.isEmpty ? nil : taxNumber,
+                            customerName: customerName.isEmpty ? nil : customerName,
+                            customerAddress: customerAddress,
+                            customerPhone: customerPhone.isEmpty ? nil : customerPhone,
+                            paymentTermDays: type == .ausgangsrechnung ? paymentTermDays : nil,
+                            paymentTermsText: paymentTermsText.isEmpty ? nil : paymentTermsText,
+                            pdfStoredFileName: importedPDFFileName
+                        )
+                        viewModel.addInvoice(invoice)
+                        dismiss()
                     }
+                    .buttonStyle(.borderedProminent)
+                    .disabled((netAmount <= 0 && grossAmountInput <= 0) || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+        .frame(width: 680, height: 760)
+    }
 
-                    GroupBox("Zahlung") {
-                        VStack(spacing: 8) {
-                            TextField("Zahlungsbedingungen", text: $paymentTermsText).modalEditorStyle()
-                            TextField("Tage bis Fälligkeit (z.B. 14 oder 21)", text: $paymentTermDaysInput).modalEditorStyle()
-                            if let due = computedDueDateText {
-                                Text("Fällig am: \(due)")
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+    private var basisStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if source == .pdf {
+                GroupBox("PDF Import") {
+                    HStack {
+                        Text(pickedPDF.isEmpty ? "Keine PDF ausgewählt" : pickedPDF)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        Spacer()
+                        Button("PDF wählen") { importFromPDF() }
                     }
 
                     if parsedLineItemsCount > 0 {
@@ -404,42 +395,100 @@ private struct AddInvoiceSheet: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
+                }
+            }
 
-                    HStack {
-                        Spacer()
-                        Button("Abbrechen", role: .cancel) { dismiss() }
-                        Button("Speichern") {
-                            let normalizedNet = netAmount > 0 ? netAmount : (grossAmountInput > 0 ? grossAmountInput / (1 + vatRate) : 0)
-                            let invoice = InvoiceEntry(
-                                title: title.isEmpty ? "Neue Rechnung" : title,
-                                source: source,
-                                type: type,
-                                netAmount: normalizedNet,
-                                vatRate: vatRate,
-                                isPaid: false,
-                                issuedAt: issuedAt,
-                                referenceNumber: referenceNumber.isEmpty ? nil : referenceNumber,
-                                invoiceNumber: invoiceNumber.isEmpty ? nil : invoiceNumber,
-                                customerNumber: customerNumber.isEmpty ? nil : customerNumber,
-                                ustIdNr: ustIdNr.isEmpty ? nil : ustIdNr,
-                                taxNumber: taxNumber.isEmpty ? nil : taxNumber,
-                                customerName: customerName.isEmpty ? nil : customerName,
-                                customerAddress: customerAddress,
-                                customerPhone: customerPhone.isEmpty ? nil : customerPhone,
-                                paymentTermDays: type == .ausgangsrechnung ? paymentTermDays : nil,
-                                paymentTermsText: paymentTermsText.isEmpty ? nil : paymentTermsText,
-                                pdfStoredFileName: importedPDFFileName
-                            )
-                            viewModel.addInvoice(invoice)
-                            dismiss()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled((netAmount <= 0 && grossAmountInput <= 0) || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
+            GroupBox("Rechnungsdaten") {
+                VStack(spacing: 8) {
+                    TextField("Bezeichnung", text: $title).modalEditorStyle()
+                    TextField("Bezug", text: $referenceNumber).modalEditorStyle()
+                    TextField("Rechnungs-Nr.", text: $invoiceNumber).modalEditorStyle()
+                    DatePicker("Rechnungsdatum", selection: $issuedAt, displayedComponents: .date)
+                    TextField("Kunden-Nr.", text: $customerNumber).modalEditorStyle()
+                    TextField("USt-IdNr.", text: $ustIdNr).modalEditorStyle()
+                    TextField("Steuernummer", text: $taxNumber).modalEditorStyle()
                 }
             }
         }
-        .frame(width: 620, height: 760)
+    }
+
+    private var customerStep: some View {
+        GroupBox("Firma/Kunde") {
+            VStack(spacing: 8) {
+                TextField("Name", text: $customerName).modalEditorStyle()
+                TextField("Straße und Hausnummer", text: $customerStreet).modalEditorStyle()
+                TextField("PLZ und Stadt", text: $customerPostalCity).modalEditorStyle()
+                TextField("Telefon / WhatsApp", text: $customerPhone).modalEditorStyle()
+            }
+        }
+    }
+
+    private var amountStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            GroupBox("Beträge") {
+                VStack(spacing: 8) {
+                    TextField("Zwischensumme (netto)", text: $netInput).modalEditorStyle()
+                    Picker("Ust.", selection: $vatRate) {
+                        Text("19%").tag(0.19)
+                        Text("7%").tag(0.07)
+                        Text("0%").tag(0.0)
+                    }
+                    .pickerStyle(.segmented)
+                    TextField("Gesamtbetrag", text: $grossInput).modalEditorStyle()
+                }
+            }
+
+            GroupBox("Zahlung") {
+                VStack(spacing: 8) {
+                    TextField("Zahlungsbedingungen", text: $paymentTermsText).modalEditorStyle()
+                    TextField("Tage bis Fälligkeit (z.B. 14 oder 21)", text: $paymentTermDaysInput).modalEditorStyle()
+                }
+            }
+        }
+    }
+
+    private func importFromPDF() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.pdf]
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        pickedPDF = url.lastPathComponent
+        if title.isEmpty { title = url.deletingPathExtension().lastPathComponent }
+
+        #if canImport(PDFKit)
+        guard let parsed = viewModel.importPDFInvoice(from: url) else { return }
+        type = .ausgangsrechnung
+        title = parsed.title
+        importedPDFFileName = parsed.storedPDFFileName
+        if let net = parsed.netAmount {
+            netInput = String(format: "%.2f", net).replacingOccurrences(of: ".", with: ",")
+        }
+        if let gross = parsed.grossAmount {
+            grossInput = String(format: "%.2f", gross).replacingOccurrences(of: ".", with: ",")
+        }
+        if let parsedVatRate = parsed.vatRate {
+            vatRate = parsedVatRate
+        }
+        issuedAt = parsed.issuedAt ?? Date()
+        referenceNumber = parsed.referenceNumber ?? ""
+        invoiceNumber = parsed.invoiceNumber ?? ""
+        customerNumber = parsed.customerNumber ?? ""
+        ustIdNr = parsed.ustIdNr ?? ""
+        taxNumber = parsed.taxNumber ?? ""
+        customerName = parsed.customerName ?? ""
+        customerPhone = parsed.customerPhone ?? ""
+        if let fullAddress = parsed.customerAddress {
+            let parts = fullAddress.split(separator: ",", maxSplits: 1).map { String($0).trimmingCharacters(in: .whitespaces) }
+            customerStreet = parts.first ?? ""
+            customerPostalCity = parts.count > 1 ? parts[1] : ""
+        }
+        paymentTermDaysInput = parsed.paymentTermDays.map(String.init) ?? paymentTermDaysInput
+        paymentTermsText = parsed.paymentTermsText ?? paymentTermsText
+        parsedLineItemsCount = parsed.lineItems.count
+        #endif
     }
 }
 
