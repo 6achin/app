@@ -160,6 +160,17 @@ struct DashboardView: View {
             .buttonStyle(.bordered)
             .disabled(!canSelectNextMonth)
         }
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 24)
+                .onEnded { value in
+                    if value.translation.width < -30 {
+                        selectPreviousMonth()
+                    } else if value.translation.width > 30 {
+                        selectNextMonth()
+                    }
+                }
+        )
     }
 
     private var canSelectPreviousMonth: Bool {
