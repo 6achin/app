@@ -558,7 +558,7 @@ final class DashboardViewModel: ObservableObject {
             let lineRange = NSRange(line.startIndex..., in: line)
             guard labelRegex.firstMatch(in: line, options: [], range: lineRange) != nil else { continue }
 
-            if let value = firstMatch(in: line, pattern: "(?:\(labelPattern))\s*:?\s*(\(valuePattern))") {
+            if let value = firstMatch(in: line, pattern: "(?:\(labelPattern))\\s*:?\\s*(\(valuePattern))") {
                 return value
             }
 
