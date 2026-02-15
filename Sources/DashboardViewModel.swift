@@ -165,6 +165,14 @@ struct MonthlyStat: Identifiable {
 }
 
 final class DashboardViewModel: ObservableObject {
+    struct ParsedInvoiceLineItem: Identifiable {
+        let id = UUID()
+        var description: String
+        var quantity: Double?
+        var unitPrice: Double?
+        var totalNet: Double?
+    }
+
     struct ParsedInvoiceData {
         var title: String
         var referenceNumber: String?
@@ -177,7 +185,9 @@ final class DashboardViewModel: ObservableObject {
         var customerPhone: String?
         var issuedAt: Date?
         var netAmount: Double?
+        var grossAmount: Double?
         var vatRate: Double?
+        var lineItems: [ParsedInvoiceLineItem] = []
         var storedPDFFileName: String?
     }
 
@@ -264,24 +274,42 @@ final class DashboardViewModel: ObservableObject {
             parsed.issuedAt = parseDate(dateText)
         }
 
-        if let vatPercentText = firstMatch(in: text, pattern: #"Ust\.\s*([0-9]{1,2})\s*%"#), let vatPercent = Double(vatPercentText) {
+        if let vatPercentText = firstMatch(in: text, pattern: #"(?:Ust\.|MwSt\.)\s*([0-9]{1,2})\s*%"#), let vatPercent = Double(vatPercentText) {
             parsed.vatRate = vatPercent / 100
         }
 
-        if let netText = firstMatch(in: text, pattern: #"Zwischensumme\s*\(netto\)\s*([0-9\.,]+)"#) {
+        if let netText = firstMatch(in: text, pattern: #"(?:Zwischensumme\s*\(netto\)|Summe\s*netto|Netto\s*gesamt)\s*([0-9\.,]+)"#) {
             parsed.netAmount = parseGermanNumber(netText)
+        }
+
+        if let grossText = firstMatch(in: text, pattern: #"(?:Rechnungsbetrag|Gesamtbetrag|Brutto\s*gesamt)\s*([0-9\.,]+)"#) {
+            parsed.grossAmount = parseGermanNumber(grossText)
+        }
+
+        parsed.lineItems = parseLineItems(in: text)
+        if parsed.netAmount == nil {
+            parsed.netAmount = parsed.lineItems.compactMap(\.totalNet).reduce(0, +)
         }
 
         let lines = text
             .components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
-        if let telIndex = lines.firstIndex(where: { $0.lowercased().contains("tel") }) {
+
+        if let recipientBlock = extractRecipientBlock(from: lines) {
+            parsed.customerName = recipientBlock.name
+            parsed.customerAddress = recipientBlock.address
+            parsed.customerPhone = recipientBlock.phone
+        } else if let telIndex = lines.firstIndex(where: { $0.lowercased().contains("tel") }) {
             let start = max(0, telIndex - 4)
             let customerLines = Array(lines[start..<telIndex])
             parsed.customerName = customerLines.first
             parsed.customerAddress = customerLines.dropFirst().joined(separator: ", ")
             parsed.customerPhone = lines[telIndex].replacingOccurrences(of: "Tel.:", with: "").trimmingCharacters(in: .whitespaces)
+        }
+
+        if parsed.vatRate == nil, let net = parsed.netAmount, let gross = parsed.grossAmount, net > 0 {
+            parsed.vatRate = max(0, (gross - net) / net)
         }
 
         return parsed
@@ -476,6 +504,61 @@ final class DashboardViewModel: ObservableObject {
         }
         formatter.dateFormat = "dd.MM.yyyy"
         return formatter.date(from: text)
+    }
+
+    private func parseLineItems(in text: String) -> [ParsedInvoiceLineItem] {
+        let pattern = #"([\p{L}0-9\-/\(\),\.\s]{3,}?)\s+([0-9]+(?:,[0-9]+)?)\s+(?:Stk\.?|x)?\s*([0-9\.]+,[0-9]{2})\s+([0-9\.]+,[0-9]{2})"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return []
+        }
+
+        let range = NSRange(text.startIndex..., in: text)
+        return regex.matches(in: text, options: [], range: range).compactMap { match in
+            guard
+                match.numberOfRanges >= 5,
+                let descriptionRange = Range(match.range(at: 1), in: text),
+                let quantityRange = Range(match.range(at: 2), in: text),
+                let unitRange = Range(match.range(at: 3), in: text),
+                let totalRange = Range(match.range(at: 4), in: text)
+            else {
+                return nil
+            }
+
+            let description = String(text[descriptionRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let quantity = parseGermanNumber(String(text[quantityRange]))
+            let unitPrice = parseGermanNumber(String(text[unitRange]))
+            let totalNet = parseGermanNumber(String(text[totalRange]))
+
+            return ParsedInvoiceLineItem(description: description, quantity: quantity, unitPrice: unitPrice, totalNet: totalNet)
+        }
+    }
+
+    private func extractRecipientBlock(from lines: [String]) -> (name: String?, address: String?, phone: String?)? {
+        let recipientMarker = lines.firstIndex(where: { line in
+            line.range(of: #"^(?:an|kunde|rechnung\s+an)\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+        })
+
+        guard let recipientMarker else { return nil }
+
+        let candidateLines = Array(lines.dropFirst(recipientMarker + 1).prefix(6))
+        guard !candidateLines.isEmpty else { return nil }
+
+        let name = candidateLines.first
+        var phone: String?
+        var addressParts: [String] = []
+
+        for line in candidateLines.dropFirst() {
+            if line.lowercased().contains("tel") {
+                phone = line
+                    .replacingOccurrences(of: "Tel.:", with: "", options: .caseInsensitive)
+                    .replacingOccurrences(of: "Telefon:", with: "", options: .caseInsensitive)
+                    .trimmingCharacters(in: .whitespaces)
+            } else {
+                addressParts.append(line)
+            }
+        }
+
+        return (name, addressParts.isEmpty ? nil : addressParts.joined(separator: ", "), phone)
     }
 
     private func storePDFLocally(from sourceURL: URL) -> String? {

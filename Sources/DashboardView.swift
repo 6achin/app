@@ -238,6 +238,7 @@ private struct AddInvoiceSheet: View {
     @State private var pickedPDF = ""
     @State private var parsedIssuedAt: Date?
     @State private var importedPDFFileName: String?
+    @State private var parsedLineItemsCount = 0
     @State private var referenceNumber = ""
     @State private var invoiceNumber = ""
     @State private var customerNumber = ""
@@ -303,13 +304,14 @@ private struct AddInvoiceSheet: View {
                                 customerName = parsed.customerName ?? ""
                                 customerAddress = parsed.customerAddress ?? ""
                                 customerPhone = parsed.customerPhone ?? ""
+                                parsedLineItemsCount = parsed.lineItems.count
                             }
                             #endif
                         }
                     }
                 }
 
-                if !invoiceNumber.isEmpty || !referenceNumber.isEmpty || !customerName.isEmpty {
+                if !invoiceNumber.isEmpty || !referenceNumber.isEmpty || !customerName.isEmpty || parsedLineItemsCount > 0 {
                     VStack(alignment: .leading, spacing: 4) {
                         if !referenceNumber.isEmpty { Text("Bezug: \(referenceNumber)").font(.footnote) }
                         if !invoiceNumber.isEmpty { Text("Rechnungs-Nr.: \(invoiceNumber)").font(.footnote) }
@@ -317,6 +319,7 @@ private struct AddInvoiceSheet: View {
                         if !ustIdNr.isEmpty { Text("USt-IdNr.: \(ustIdNr)").font(.footnote) }
                         if !taxNumber.isEmpty { Text("Steuernummer: \(taxNumber)").font(.footnote) }
                         if !customerName.isEmpty { Text("Kunde: \(customerName)").font(.footnote) }
+                        if parsedLineItemsCount > 0 { Text("Positionen erkannt: \(parsedLineItemsCount)").font(.footnote) }
                     }
                     .foregroundStyle(.secondary)
                 }
