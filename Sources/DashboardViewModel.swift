@@ -8,7 +8,7 @@ enum MetricType: String {
     case fixkosten = "Fixkosten"
 }
 
-enum BillingCycle: String, CaseIterable, Identifiable {
+enum BillingCycle: String, CaseIterable, Identifiable, Codable {
     case monatlich = "Monatlich"
     case quartalsweise = "Quartalsweise"
     case halbjaehrlich = "Halbjährlich"
@@ -17,14 +17,14 @@ enum BillingCycle: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-enum InvoiceSource: String, CaseIterable, Identifiable {
+enum InvoiceSource: String, CaseIterable, Identifiable, Codable {
     case pdf = "PDF-Rechnung"
     case manual = "Manuelle Eingabe"
 
     var id: String { rawValue }
 }
 
-enum InvoiceType: String, CaseIterable, Identifiable {
+enum InvoiceType: String, CaseIterable, Identifiable, Codable {
     case eingangsrechnung = "Eingangsrechnung"
     case ausgangsrechnung = "Ausgangsrechnung"
 
@@ -47,7 +47,7 @@ struct MetricCard: Identifiable {
     var title: String { type.rawValue }
 }
 
-struct InvoiceEntry: Identifiable {
+struct InvoiceEntry: Identifiable, Codable {
     let id: UUID
     var title: String
     var source: InvoiceSource
@@ -84,7 +84,7 @@ struct InvoiceEntry: Identifiable {
     var grossAmount: Double { netAmount + vatAmount }
 }
 
-struct FixkostenEntry: Identifiable {
+struct FixkostenEntry: Identifiable, Codable {
     let id: UUID
     var name: String
     var cycle: BillingCycle
@@ -132,6 +132,12 @@ struct MonthlyStat: Identifiable {
 }
 
 final class DashboardViewModel: ObservableObject {
+    private struct DashboardStore: Codable {
+        let invoices: [InvoiceEntry]
+        let fixkostenEntries: [FixkostenEntry]
+        let kreditUndDarlehenMonatlich: Double
+    }
+
     @Published var cards: [MetricCard] = [
         MetricCard(type: .umsatz, value: "€ 0,00", note: "Netto aus Ausgangsrechnungen"),
         MetricCard(type: .umsatzsteuer, value: "€ 0,00", note: "Zahllast (Ausgang - Eingang)"),
@@ -140,18 +146,35 @@ final class DashboardViewModel: ObservableObject {
         MetricCard(type: .fixkosten, value: "€ 0,00", note: "0 Positionen")
     ]
 
-    @Published var invoices: [InvoiceEntry] = [
-        InvoiceEntry(title: "Rechnung #1001", source: .manual, type: .ausgangsrechnung, netAmount: 8200, vatRate: 0.19, isPaid: true, issuedAt: Calendar.current.date(byAdding: .day, value: -24, to: Date())!, paidAt: Calendar.current.date(byAdding: .day, value: -10, to: Date())),
-        InvoiceEntry(title: "Rechnung #1002", source: .manual, type: .ausgangsrechnung, netAmount: 5400, vatRate: 0.19, isPaid: false, issuedAt: Calendar.current.date(byAdding: .day, value: -12, to: Date())!),
-        InvoiceEntry(title: "Lieferant #230", source: .manual, type: .eingangsrechnung, netAmount: 2200, vatRate: 0.19, isPaid: false, issuedAt: Calendar.current.date(byAdding: .day, value: -8, to: Date())!)
-    ]
+    @Published var invoices: [InvoiceEntry]
 
-    @Published var fixkostenEntries: [FixkostenEntry] = [
-        FixkostenEntry(name: "Büromiete", cycle: .monatlich, automaticDebit: true, netAmount: 2000, vatRate: 0.19, description: "Monatliche Miete"),
-        FixkostenEntry(name: "Hosting", cycle: .halbjaehrlich, automaticDebit: false, netAmount: 600, vatRate: 0.19, description: "Server und Domain")
-    ]
+    @Published var fixkostenEntries: [FixkostenEntry]
 
-    @Published var kreditUndDarlehenMonatlich: Double = 900
+    @Published var kreditUndDarlehenMonatlich: Double {
+        didSet {
+            saveLocally()
+            recalculateAllMetrics()
+        }
+    }
+
+    private let storageURL: URL
+
+    init() {
+        storageURL = Self.makeStorageURL()
+
+        if let localData = Self.loadStore(from: storageURL) {
+            invoices = localData.invoices
+            fixkostenEntries = localData.fixkostenEntries
+            kreditUndDarlehenMonatlich = localData.kreditUndDarlehenMonatlich
+        } else {
+            invoices = Self.defaultInvoices()
+            fixkostenEntries = Self.defaultFixkostenEntries()
+            kreditUndDarlehenMonatlich = 900
+            saveLocally()
+        }
+
+        recalculateAllMetrics()
+    }
 
     private let currencyFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
@@ -171,6 +194,7 @@ final class DashboardViewModel: ObservableObject {
 
     func addInvoice(_ entry: InvoiceEntry) {
         invoices.append(entry)
+        saveLocally()
         recalculateAllMetrics()
     }
 
@@ -178,17 +202,20 @@ final class DashboardViewModel: ObservableObject {
         guard let index = invoices.firstIndex(where: { $0.id == id }) else { return }
         invoices[index].isPaid = true
         invoices[index].paidAt = Date()
+        saveLocally()
         recalculateAllMetrics()
     }
 
     func addFixkostenEntry(_ entry: FixkostenEntry) {
         fixkostenEntries.append(entry)
+        saveLocally()
         recalculateAllMetrics()
     }
 
     func updateFixkostenEntry(_ entry: FixkostenEntry) {
         guard let index = fixkostenEntries.firstIndex(where: { $0.id == entry.id }) else { return }
         fixkostenEntries[index] = entry
+        saveLocally()
         recalculateAllMetrics()
     }
 
@@ -261,5 +288,50 @@ final class DashboardViewModel: ObservableObject {
 
     func formatCurrency(_ value: Double) -> String {
         currencyFormatter.string(from: NSNumber(value: value)) ?? "€ 0,00"
+    }
+
+    private static func defaultInvoices() -> [InvoiceEntry] {
+        [
+            InvoiceEntry(title: "Rechnung #1001", source: .manual, type: .ausgangsrechnung, netAmount: 8200, vatRate: 0.19, isPaid: true, issuedAt: Calendar.current.date(byAdding: .day, value: -24, to: Date())!, paidAt: Calendar.current.date(byAdding: .day, value: -10, to: Date())),
+            InvoiceEntry(title: "Rechnung #1002", source: .manual, type: .ausgangsrechnung, netAmount: 5400, vatRate: 0.19, isPaid: false, issuedAt: Calendar.current.date(byAdding: .day, value: -12, to: Date())!),
+            InvoiceEntry(title: "Lieferant #230", source: .manual, type: .eingangsrechnung, netAmount: 2200, vatRate: 0.19, isPaid: false, issuedAt: Calendar.current.date(byAdding: .day, value: -8, to: Date())!)
+        ]
+    }
+
+    private static func defaultFixkostenEntries() -> [FixkostenEntry] {
+        [
+            FixkostenEntry(name: "Büromiete", cycle: .monatlich, automaticDebit: true, netAmount: 2000, vatRate: 0.19, description: "Monatliche Miete"),
+            FixkostenEntry(name: "Hosting", cycle: .halbjaehrlich, automaticDebit: false, netAmount: 600, vatRate: 0.19, description: "Server und Domain")
+        ]
+    }
+
+    private static func makeStorageURL() -> URL {
+        let supportDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let appDirectory = supportDirectory.appendingPathComponent("BusinessAccounting", isDirectory: true)
+        try? FileManager.default.createDirectory(at: appDirectory, withIntermediateDirectories: true)
+        return appDirectory.appendingPathComponent("dashboard-data.json")
+    }
+
+    private static func loadStore(from url: URL) -> DashboardStore? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try? decoder.decode(DashboardStore.self, from: data)
+    }
+
+    private func saveLocally() {
+        let store = DashboardStore(
+            invoices: invoices,
+            fixkostenEntries: fixkostenEntries,
+            kreditUndDarlehenMonatlich: kreditUndDarlehenMonatlich
+        )
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+
+        guard let data = try? encoder.encode(store) else { return }
+        try? data.write(to: storageURL, options: .atomic)
     }
 }
