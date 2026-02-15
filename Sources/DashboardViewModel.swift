@@ -281,7 +281,7 @@ final class DashboardViewModel: ObservableObject {
         parsed.customerNumber = firstNonNil([
             firstMatch(in: text, pattern: #"Kunden-Nr\.\s*:\s*([A-Z0-9\-]+)"#),
             firstMatch(in: text, pattern: #"\b(K[0-9]{2,6})\b"#),
-            adjacentValue(in: text, labelPattern: #"Kunden-Nr\.?"#, valuePattern: #"[A-Z0-9\-]{2,}"#)
+            adjacentValue(in: text, labelPattern: #"Kunden-Nr\.?"#, valuePattern: #"(?=.*[0-9])[A-Z0-9\-]{2,}"#)
         ])
 
         parsed.ustIdNr = firstNonNil([
@@ -558,21 +558,46 @@ final class DashboardViewModel: ObservableObject {
             let lineRange = NSRange(line.startIndex..., in: line)
             guard labelRegex.firstMatch(in: line, options: [], range: lineRange) != nil else { continue }
 
-            if let value = firstMatch(in: line, pattern: "(?:\(labelPattern))\\s*:?\\s*(\(valuePattern))") {
+            if let value = firstMatch(in: line, pattern: "(?:\(labelPattern))\\s*:?\\s*(\(valuePattern))"),
+               isLikelyValue(value) {
                 return value
             }
 
-            if let sameLineValue = firstMatch(in: line, pattern: "(\(valuePattern))") {
+            if let sameLineValue = firstMatch(in: line, pattern: "(\(valuePattern))"),
+               isLikelyValue(sameLineValue) {
                 return sameLineValue
             }
 
             if index + 1 < lines.count,
-               let nextLineValue = firstMatch(in: lines[index + 1], pattern: "(\(valuePattern))") {
+               let nextLineValue = firstMatch(in: lines[index + 1], pattern: "(\(valuePattern))"),
+               isLikelyValue(nextLineValue) {
                 return nextLineValue
             }
         }
 
         return nil
+    }
+
+
+    private func isLikelyValue(_ candidate: String) -> Bool {
+        let normalized = candidate
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .replacingOccurrences(of: ":", with: "")
+
+        if normalized.isEmpty { return false }
+
+        let blockedWords = [
+            "bezug", "rechnungs-nr", "rechnungsnr", "rechnungsdatum",
+            "kunden-nr", "kundennr", "ust-idnr", "ustidnr", "steuernummer",
+            "zwischensumme", "zwieschensumme", "gesamtbetrag"
+        ]
+
+        if blockedWords.contains(where: { normalized.contains($0) }) {
+            return false
+        }
+
+        return true
     }
 
     private func firstMatch(in text: String, pattern: String) -> String? {
