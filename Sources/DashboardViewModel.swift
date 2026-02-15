@@ -266,11 +266,33 @@ final class DashboardViewModel: ObservableObject {
 
         var parsed = ParsedInvoiceData(title: url.deletingPathExtension().lastPathComponent)
         parsed.storedPDFFileName = storedFileName
-        parsed.referenceNumber = firstMatch(in: text, pattern: #"Bezug:\s*([A-Z0-9\-]+)"#)
-        parsed.invoiceNumber = firstMatch(in: text, pattern: #"Rechnungs-Nr\.\s*:\s*([A-Z0-9\-]+)"#)
-        parsed.customerNumber = firstMatch(in: text, pattern: #"Kunden-Nr\.\s*:\s*([A-Z0-9\-]+)"#)
-        parsed.ustIdNr = firstMatch(in: text, pattern: #"USt-IdNr\.\s*:\s*([^\n\r]+)"#)?.trimmingCharacters(in: .whitespaces)
-        parsed.taxNumber = firstMatch(in: text, pattern: #"Steuernummer:\s*([0-9/\-]+)"#)
+        parsed.referenceNumber = firstNonNil([
+            firstMatch(in: text, pattern: #"Bezug:\s*([A-Z0-9\-]+)"#),
+            firstMatch(in: text, pattern: #"\b(LS-[0-9]{4}-[0-9]{2}-[0-9]{3,5})\b"#),
+            adjacentValue(in: text, labelPattern: #"Bezug"#, valuePattern: #"[A-Z0-9\-]{4,}"#)
+        ])
+
+        parsed.invoiceNumber = firstNonNil([
+            firstMatch(in: text, pattern: #"Rechnungs-Nr\.\s*:\s*([A-Z0-9\-]+)"#),
+            firstMatch(in: text, pattern: #"\b(RE-[0-9]{4}-[0-9]{2}-[0-9]{3,5})\b"#),
+            adjacentValue(in: text, labelPattern: #"Rechnungs-Nr\.?"#, valuePattern: #"[A-Z]{1,4}-[0-9]{4}-[0-9]{2}-[0-9]{3,5}"#)
+        ])
+
+        parsed.customerNumber = firstNonNil([
+            firstMatch(in: text, pattern: #"Kunden-Nr\.\s*:\s*([A-Z0-9\-]+)"#),
+            firstMatch(in: text, pattern: #"\b(K[0-9]{2,6})\b"#),
+            adjacentValue(in: text, labelPattern: #"Kunden-Nr\.?"#, valuePattern: #"[A-Z0-9\-]{2,}"#)
+        ])
+
+        parsed.ustIdNr = firstNonNil([
+            firstMatch(in: text, pattern: #"USt-IdNr\.\s*:\s*([^\n\r]+)"#)?.trimmingCharacters(in: .whitespaces),
+            adjacentValue(in: text, labelPattern: #"USt-IdNr\.?"#, valuePattern: #"[A-Z]{2}[A-Z0-9\-]{6,}"#)
+        ])
+
+        parsed.taxNumber = firstNonNil([
+            firstMatch(in: text, pattern: #"Steuernummer:\s*([0-9/\-]+)"#),
+            adjacentValue(in: text, labelPattern: #"Steuernummer"#, valuePattern: #"[0-9/\-]{6,}"#)
+        ])
 
         if let inv = parsed.invoiceNumber {
             parsed.title = inv
@@ -286,11 +308,17 @@ final class DashboardViewModel: ObservableObject {
             parsed.vatRate = vatPercent / 100
         }
 
-        if let netText = firstMatch(in: text, pattern: #"(?:(?:Zwischensumme|Zwieschensumme)\s*\(netto\)|Summe\s*netto|Netto\s*gesamt)\s*([0-9\.,]+)"#) {
+        if let netText = firstNonNil([
+            firstMatch(in: text, pattern: #"(?:(?:Zwischensumme|Zwieschensumme)\s*\(netto\)|Summe\s*netto|Netto\s*gesamt)\s*([0-9\.,]+)"#),
+            adjacentValue(in: text, labelPattern: #"(?:Zwischensumme|Zwieschensumme)\s*\(netto\)|Summe\s*netto|Netto\s*gesamt"#, valuePattern: #"[0-9\.]+,[0-9]{2}"#)
+        ]) {
             parsed.netAmount = parseGermanNumber(netText)
         }
 
-        if let grossText = firstMatch(in: text, pattern: #"(?:Rechnungsbetrag|Gesamtbetrag|Brutto\s*gesamt)\s*([0-9\.,]+)"#) {
+        if let grossText = firstNonNil([
+            firstMatch(in: text, pattern: #"(?:Rechnungsbetrag|Gesamtbetrag|Brutto\s*gesamt)\s*([0-9\.,]+)"#),
+            adjacentValue(in: text, labelPattern: #"Rechnungsbetrag|Gesamtbetrag|Brutto\s*gesamt"#, valuePattern: #"[0-9\.]+,[0-9]{2}"#)
+        ]) {
             parsed.grossAmount = parseGermanNumber(grossText)
         }
 
@@ -511,6 +539,41 @@ final class DashboardViewModel: ObservableObject {
         _ = invoice
     }
     #endif
+
+
+    private func firstNonNil(_ values: [String?]) -> String? {
+        values.compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first(where: { !$0.isEmpty })
+    }
+
+    private func adjacentValue(in text: String, labelPattern: String, valuePattern: String) -> String? {
+        let lines = text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        guard let labelRegex = try? NSRegularExpression(pattern: labelPattern, options: [.caseInsensitive])
+        else { return nil }
+
+        for (index, line) in lines.enumerated() {
+            let lineRange = NSRange(line.startIndex..., in: line)
+            guard labelRegex.firstMatch(in: line, options: [], range: lineRange) != nil else { continue }
+
+            if let value = firstMatch(in: line, pattern: "(?:\(labelPattern))\s*:?\s*(\(valuePattern))") {
+                return value
+            }
+
+            if let sameLineValue = firstMatch(in: line, pattern: "(\(valuePattern))") {
+                return sameLineValue
+            }
+
+            if index + 1 < lines.count,
+               let nextLineValue = firstMatch(in: lines[index + 1], pattern: "(\(valuePattern))") {
+                return nextLineValue
+            }
+        }
+
+        return nil
+    }
 
     private func firstMatch(in text: String, pattern: String) -> String? {
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return nil }
