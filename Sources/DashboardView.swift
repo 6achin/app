@@ -196,7 +196,7 @@ struct DashboardView: View {
     private var monthlyOverview: some View {
         let stat = viewModel.monthlyStat(for: activeMonthStart)
 
-        VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: 10) {
             Text("Monatsstatistik")
                 .font(.headline.weight(.semibold))
 
