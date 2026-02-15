@@ -7,14 +7,14 @@ final class AuthViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     private let allowedUsers = [
-        "owner": "12345",
+        "inhaber": "12345",
         "manager": "biz2026"
     ]
 
     func login() {
         let cleanUsername = username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !cleanUsername.isEmpty, !password.isEmpty else {
-            errorMessage = "Введите логин и пароль."
+            errorMessage = "Bitte Benutzername und Passwort eingeben."
             return
         }
 
@@ -22,7 +22,7 @@ final class AuthViewModel: ObservableObject {
             isAuthenticated = true
             errorMessage = nil
         } else {
-            errorMessage = "Неверный логин или пароль."
+            errorMessage = "Benutzername oder Passwort ist falsch."
         }
     }
 

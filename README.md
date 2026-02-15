@@ -1,28 +1,22 @@
 # BusinessAccountingApp (macOS)
 
-Минималистичное macOS-приложение для учета бизнеса с логином и dashboard.
+Minimalistische macOS-App für Business-Buchhaltung mit Login und Dashboard.
 
-## Как запустить на Mac
+## Start auf macOS
 
-1. Откройте Terminal на **самом Mac** (не внутри Linux-контейнера) и перейдите в папку проекта.
-2. Убедитесь, что установлен Xcode (или Command Line Tools с macOS SDK).
-3. Запустите:
+1. Terminal auf einem Mac öffnen (nicht in einem Linux-Container).
+2. Sicherstellen, dass Xcode bzw. Command Line Tools mit macOS-SDK installiert sind.
+3. App starten:
 
 ```bash
 swift run BusinessAccountingApp
 ```
 
-Если после запуска окно не видно, переключитесь на приложение `BusinessAccountingApp` через `Cmd+Tab` — приложение теперь принудительно активируется и делает окно `key/main`.
+## Demo-Logins
 
-## Что означает ваш warning
-
-Сообщение вида:
-
-`ordered front from a non-active application ...`
-
-означает, что окно пытались показать до полной активации приложения. В текущей версии это исправлено: сначала активация, затем показ окна в следующем тике главного потока.
-
-## Демо-логины
-
-- `owner` / `12345`
+- `inhaber` / `12345`
 - `manager` / `biz2026`
+
+## Hinweis zur Container-Umgebung
+
+In Linux-Containern ist `SwiftUI` nicht verfügbar, deshalb schlägt `swift build` dort erwartbar fehl.

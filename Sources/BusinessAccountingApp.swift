@@ -33,7 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
 
-        window.title = "Business Accounting"
+        window.title = "Business Buchhaltung"
         window.center()
         window.contentView = hostingView
         self.window = window

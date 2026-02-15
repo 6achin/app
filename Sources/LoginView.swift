@@ -9,17 +9,17 @@ struct LoginView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 20) {
-                Text("Business Accounting")
+                Text("Business Buchhaltung")
                     .font(.system(size: 28, weight: .semibold))
 
-                Text("Вход в систему")
+                Text("Anmeldung")
                     .foregroundStyle(.secondary)
 
                 VStack(spacing: 14) {
-                    TextField("Логин", text: $viewModel.username)
+                    TextField("Benutzername", text: $viewModel.username)
                         .textFieldStyle(.roundedBorder)
 
-                    SecureField("Пароль", text: $viewModel.password)
+                    SecureField("Passwort", text: $viewModel.password)
                         .textFieldStyle(.roundedBorder)
                         .onSubmit(viewModel.login)
                 }
@@ -30,7 +30,7 @@ struct LoginView: View {
                         .font(.footnote)
                 }
 
-                Button("Войти", action: viewModel.login)
+                Button("Einloggen", action: viewModel.login)
                     .buttonStyle(.borderedProminent)
                     .frame(maxWidth: .infinity)
             }
