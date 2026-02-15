@@ -21,6 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let auth = AuthViewModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.regular)
+
         let rootView = RootContentView(auth: auth)
         let hostingView = NSHostingView(rootView: rootView)
 
@@ -34,12 +36,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.title = "Business Accounting"
         window.center()
         window.contentView = hostingView
-        window.makeKeyAndOrderFront(nil)
-        window.orderFrontRegardless()
+        self.window = window
 
         NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
 
-        self.window = window
+        DispatchQueue.main.async {
+            guard let window = self.window else { return }
+            window.orderFront(nil)
+            window.makeKey()
+            window.makeMain()
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
