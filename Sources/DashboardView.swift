@@ -82,8 +82,6 @@ struct DashboardView: View {
                     .buttonStyle(.bordered)
                 }
 
-                monthlyOverview
-
                 monthNavigation
 
                 LazyVGrid(columns: cardColumns, spacing: 10) {
@@ -196,50 +194,6 @@ struct DashboardView: View {
         selectedMonthStart = availableMonths[currentIndex - 1]
     }
 
-    private var monthlyOverview: some View {
-        let stat = viewModel.monthlyStat(for: activeMonthStart)
-
-        return VStack(alignment: .leading, spacing: 10) {
-            Text("Monatsstatistik")
-                .font(.headline.weight(.semibold))
-
-            HStack(spacing: 16) {
-                Text("Monat")
-                Spacer()
-                Text("Umsatz")
-                    .frame(width: 140, alignment: .trailing)
-                Text("Einnahmen")
-                    .frame(width: 140, alignment: .trailing)
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-
-            Divider()
-
-            ForEach([stat]) { stat in
-                HStack(spacing: 16) {
-                    Text(stat.title)
-                    Spacer()
-                    Text(viewModel.formatCurrency(stat.umsatz))
-                        .fontWeight(.medium)
-                        .frame(width: 140, alignment: .trailing)
-                    Text(viewModel.formatCurrency(stat.einnahmen))
-                        .fontWeight(.semibold)
-                        .frame(width: 140, alignment: .trailing)
-                }
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .padding(.vertical, 2)
-            }
-        }
-        .padding(16)
-        .background(.regularMaterial)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
 }
 
 private struct KPIButtonCard: View {

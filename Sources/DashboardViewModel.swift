@@ -266,22 +266,6 @@ final class DashboardViewModel: ObservableObject {
         .sorted { lhs, rhs in lhs.monthStart > rhs.monthStart }
     }
 
-    func monthlyStat(for monthStart: Date) -> MonthlyStat {
-        let monthEntries = invoices.filter { startOfMonth(for: $0.issuedAt) == monthStart }
-        let umsatz = monthEntries.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.netAmount }
-        let outputVat = monthEntries.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.vatAmount }
-        let inputVat = monthEntries.filter { $0.type == .eingangsrechnung }.reduce(0) { $0 + $1.vatAmount }
-        let vatPayable = outputVat - inputVat
-        let fixkosten = fixkostenEntries.reduce(0) { $0 + $1.grossAmount }
-        let einnahmen = umsatz - max(vatPayable, 0) - kreditUndDarlehenMonatlich - fixkosten
-        return MonthlyStat(
-            title: monthTitle(for: monthStart),
-            monthStart: monthStart,
-            umsatz: umsatz,
-            einnahmen: einnahmen
-        )
-    }
-
     func metricCards(for monthStart: Date?) -> [MetricCard] {
         let monthFiltered: [InvoiceEntry]
         if let monthStart {
