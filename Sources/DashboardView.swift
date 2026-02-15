@@ -28,7 +28,11 @@ struct DashboardView: View {
 
     var body: some View {
         ZStack {
-            Color(nsColor: .windowBackgroundColor)
+            LinearGradient(
+                colors: [Color(nsColor: .windowBackgroundColor), Color.accentColor.opacity(0.08)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
                 .ignoresSafeArea()
 
             NavigationSplitView {
@@ -37,6 +41,8 @@ struct DashboardView: View {
                     Label("Rechnungen", systemImage: "doc.text")
                     Label("Fixkosten", systemImage: "eurosign.circle")
                 }
+                .listStyle(.sidebar)
+                .scrollContentBackground(.hidden)
                 .navigationTitle("Menü")
             } detail: {
                 VStack(alignment: .leading, spacing: 18) {
@@ -80,6 +86,7 @@ struct DashboardView: View {
                     Spacer()
                 }
                 .padding(24)
+                .frame(maxWidth: 1120, maxHeight: .infinity, alignment: .topLeading)
             }
         }
         .sheet(item: $selectedSheet) { sheet in
@@ -107,24 +114,30 @@ struct DashboardView: View {
     }
 
     private var monthlyOverview: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("Monatsstatistik")
-                .font(.headline)
+                .font(.headline.weight(.semibold))
             ForEach(viewModel.monthlyStats()) { stat in
                 HStack {
                     Text(stat.title)
+                        .foregroundStyle(.secondary)
                     Spacer()
-                    Text("Umsatz: \(viewModel.formatCurrency(stat.umsatz))")
-                    Text("Einnahmen: \(viewModel.formatCurrency(stat.einnahmen))")
+                    Text(viewModel.formatCurrency(stat.umsatz))
+                        .fontWeight(.medium)
+                    Text(viewModel.formatCurrency(stat.einnahmen))
                         .fontWeight(.semibold)
                 }
                 .font(.footnote)
                 .padding(.vertical, 2)
             }
         }
-        .padding(12)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(16)
+        .background(.regularMaterial)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
@@ -145,9 +158,14 @@ private struct KPIButtonCard: View {
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, minHeight: 110, alignment: .leading)
-            .padding(14)
-            .background(Color(nsColor: .controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(16)
+            .background(.regularMaterial)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 6)
         }
         .buttonStyle(.plain)
     }
@@ -644,7 +662,9 @@ private struct ModalSheetContainer<Content: View>: View {
                     Button(action: onClose) {
                         Image(systemName: "xmark")
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.plain)
+                    .padding(8)
+                    .background(Color.primary.opacity(0.08), in: Circle())
                     .help("Schließen")
                 }
             }
@@ -652,11 +672,27 @@ private struct ModalSheetContainer<Content: View>: View {
             content()
         }
         .padding(20)
+        .background(.regularMaterial)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 
 private extension View {
     func modalEditorStyle() -> some View {
-        textFieldStyle(.roundedBorder)
+        textFieldStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color(nsColor: .textBackgroundColor).opacity(0.7))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+            )
     }
 }

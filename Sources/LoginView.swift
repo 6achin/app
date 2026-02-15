@@ -6,29 +6,31 @@ struct LoginView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(nsColor: .windowBackgroundColor), Color.indigo.opacity(0.16)],
+                colors: [Color(nsColor: .windowBackgroundColor), Color.accentColor.opacity(0.14)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
 
             VStack(spacing: 22) {
-                Image(systemName: "building.2.crop.circle")
-                    .font(.system(size: 46))
-                    .foregroundStyle(.indigo)
+                Image(systemName: "building.2.crop.circle.fill")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.primary)
 
-                Text("Business Buchhaltung")
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                VStack(spacing: 4) {
+                    Text("Business Buchhaltung")
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
 
-                Text("Sicher anmelden")
-                    .foregroundStyle(.secondary)
+                    Text("Sicher anmelden")
+                        .foregroundStyle(.secondary)
+                }
 
-                VStack(spacing: 14) {
+                VStack(spacing: 12) {
                     TextField("Benutzername", text: $viewModel.username)
-                        .textFieldStyle(.roundedBorder)
+                        .loginInputStyle()
 
                     SecureField("Passwort", text: $viewModel.password)
-                        .textFieldStyle(.roundedBorder)
+                        .loginInputStyle()
                         .onSubmit(viewModel.login)
                 }
 
@@ -47,13 +49,31 @@ struct LoginView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            .padding(30)
+            .padding(32)
             .frame(width: 420)
-            .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .shadow(color: .black.opacity(0.15), radius: 18, x: 0, y: 10)
+            .background(.ultraThinMaterial)
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(Color.primary.opacity(0.1), lineWidth: 1)
             )
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .shadow(color: .black.opacity(0.08), radius: 20, x: 0, y: 10)
         }
+    }
+}
+
+private extension View {
+    func loginInputStyle() -> some View {
+        textFieldStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color(nsColor: .textBackgroundColor).opacity(0.75))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+            )
     }
 }
