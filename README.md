@@ -17,28 +17,25 @@ swift run BusinessAccountingApp
 - `bachin` / `12345` (Admin)
 - `manager` / `biz2026`
 
-## Kennzahlen-Logik im Dashboard
+## Dashboard-Logik
 
-- **Umsatz** = Summe der Netto-Beträge aus Ausgangsrechnungen.
-- **Umsatzsteuer (Zahllast)** = Ausgangssteuer - Vorsteuer aus Eingangsrechnungen.
-- **Einnahmen** = Umsatz - Umsatzsteuer-Zahllast - Kredite/Darlehen - Fixkosten (brutto).
+- Alle KPI-Karten sind klickbar und öffnen jeweils eine Detailansicht.
+- **Umsatz**: nach Monaten gruppierte Rechnungen mit Trennung in Ausgangs-/Eingangsrechnungen.
+- **Rechnungen offen**: getrennte Listen für offene Ausgangs- und Eingangsrechnungen; per „Als bezahlt“ werden sie entfernt.
+- **Einnahmen**: zeigt bezahlte Ausgangsrechnungen mit netto erhaltenem Betrag.
+- Monatsstatistik auf dem Hauptscreen zeigt Umsatz/Einnahmen pro Monat.
 
 ## Hinzufügen-Workflow
 
-Die Schaltfläche **Hinzufügen** erlaubt:
 - Auswahl der Quelle: **PDF-Rechnung** oder **Manuelle Eingabe**.
 - Auswahl des Typs: **Eingangsrechnung** oder **Ausgangsrechnung**.
-- Eingabe von Netto, MwSt-Satz und Zahlungsstatus.
+- Neu angelegte Rechnungen werden als offen gespeichert und in „Rechnungen offen“ angezeigt.
 
 ## Fixkosten-Workflow
 
-- Auf die Karte **Fixkosten** klicken.
-- Mit **Hinzufügen (+)** neue Position erstellen.
-- Felder: Name, Intervall (monatlich/quartalsweise/halbjährlich/jährlich), automatische Abbuchung, Netto, Beschreibung.
-- MwSt kann auf **19%**, **7%** oder **0%** gesetzt werden.
-- **MwSt** und **Brutto** werden automatisch berechnet.
-- Doppelklick auf eine Zeile öffnet den Bearbeitungsdialog.
-- Schließen per **X**, **Abbrechen** oder Klick außerhalb des Dialogs.
+- Karte **Fixkosten** öffnen.
+- Neue Positionen mit Intervall, Netto, MwSt (19/7/0) und Beschreibung erfassen.
+- Doppelklick auf eine Zeile öffnet die Bearbeitung.
 
 ## Hinweis zur Container-Umgebung
 
