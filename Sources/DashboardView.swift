@@ -27,7 +27,7 @@ struct DashboardView: View {
     @State private var showAddInvoiceSheet = false
     @State private var selectedMonthStart: Date?
 
-    private let cardColumns = [GridItem(.adaptive(minimum: 260), spacing: 12)]
+    private let cardColumns = [GridItem(.adaptive(minimum: 220), spacing: 10)]
 
     private var availableMonths: [Date] {
         viewModel.availableMonths()
@@ -52,64 +52,52 @@ struct DashboardView: View {
                 endPoint: .bottomTrailing
             )
                 .ignoresSafeArea()
-
-            NavigationSplitView {
-                List {
-                    Label("Dashboard", systemImage: "rectangle.grid.2x2")
-                    Label("Rechnungen", systemImage: "doc.text")
-                    Label("Fixkosten", systemImage: "eurosign.circle")
-                }
-                .listStyle(.sidebar)
-                .scrollContentBackground(.hidden)
-                .navigationTitle("Menü")
-            } detail: {
-                VStack(alignment: .leading, spacing: 18) {
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Dashboard")
-                                .font(.system(size: 34, weight: .bold, design: .rounded))
-                            Text("Willkommen zurück, bachin")
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer()
-
-                        Button {
-                            showAddInvoiceSheet = true
-                        } label: {
-                            Label("Hinzufügen", systemImage: "plus")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .keyboardShortcut("n", modifiers: [.command])
-                        .help("Neue Rechnung hinzufügen (⌘N)")
-
-                        Button("Abmelden", action: onLogout)
-                            .buttonStyle(.bordered)
-                    }
-
-                    monthlyOverview
-
-                    monthNavigation
-
-                    LazyVGrid(columns: cardColumns, spacing: 12) {
-                        ForEach(displayedCards) { card in
-                            KPIButtonCard(card: card) {
-                                switch card.type {
-                                case .umsatz: selectedSheet = .umsatz
-                                case .umsatzsteuer: selectedSheet = .umsatzsteuer
-                                case .rechnungenOffen: selectedSheet = .rechnungenOffen
-                                case .einnahmen: selectedSheet = .einnahmen
-                                case .fixkosten: selectedSheet = .fixkosten
-                                }
-                            }
-                        }
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Dashboard")
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                        Text("Willkommen zurück, bachin")
+                            .foregroundStyle(.secondary)
                     }
 
                     Spacer()
+
+                    Button {
+                        showAddInvoiceSheet = true
+                    } label: {
+                        Label("Hinzufügen", systemImage: "plus")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut("n", modifiers: [.command])
+                    .help("Neue Rechnung hinzufügen (⌘N)")
+
+                    Button("Abmelden", action: onLogout)
+                        .buttonStyle(.bordered)
                 }
-                .padding(24)
-                .frame(maxWidth: 1120, maxHeight: .infinity, alignment: .topLeading)
+
+                monthlyOverview
+
+                monthNavigation
+
+                LazyVGrid(columns: cardColumns, spacing: 10) {
+                    ForEach(displayedCards) { card in
+                        KPIButtonCard(card: card) {
+                            switch card.type {
+                            case .umsatz: selectedSheet = .umsatz
+                            case .umsatzsteuer: selectedSheet = .umsatzsteuer
+                            case .rechnungenOffen: selectedSheet = .rechnungenOffen
+                            case .einnahmen: selectedSheet = .einnahmen
+                            case .fixkosten: selectedSheet = .fixkosten
+                            }
+                        }
+                    }
+                }
+
+                Spacer()
             }
+            .padding(24)
+            .frame(maxWidth: 1120, maxHeight: .infinity, alignment: .topLeading)
         }
         .sheet(item: $selectedSheet) { sheet in
             switch sheet {
@@ -245,18 +233,18 @@ private struct KPIButtonCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(card.title)
-                    .font(.subheadline)
+                    .font(.body.weight(.medium))
                     .foregroundStyle(.secondary)
                 Text(card.value)
-                    .font(.title3.weight(.semibold))
+                    .font(.title2.weight(.bold))
                 Text(card.note)
-                    .font(.footnote)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: .infinity, minHeight: 110, alignment: .leading)
-            .padding(16)
+            .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
+            .padding(14)
             .background(.regularMaterial)
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
