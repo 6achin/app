@@ -26,6 +26,7 @@ struct DashboardView: View {
     @State private var selectedSheet: DashboardSheet?
     @State private var showAddInvoiceSheet = false
     @State private var selectedMonthStart: Date?
+    @State private var showClearDataAlert = false
 
     private let cardColumns = [GridItem(.adaptive(minimum: 220), spacing: 10)]
 
@@ -74,6 +75,11 @@ struct DashboardView: View {
 
                     Button("Abmelden", action: onLogout)
                         .buttonStyle(.bordered)
+
+                    Button("Alle Daten löschen", role: .destructive) {
+                        showClearDataAlert = true
+                    }
+                    .buttonStyle(.bordered)
                 }
 
                 monthlyOverview
@@ -123,6 +129,15 @@ struct DashboardView: View {
                 selectedMonthStart = availableMonths.first
             }
             viewModel.recalculateAllMetrics()
+        }
+        .alert("Alle Daten wirklich löschen?", isPresented: $showClearDataAlert) {
+            Button("Löschen", role: .destructive) {
+                viewModel.clearAllData()
+                selectedMonthStart = availableMonths.first
+            }
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Diese Aktion entfernt alle Rechnungen und Fixkosten dauerhaft aus dem lokalen Speicher.")
         }
     }
 
