@@ -236,6 +236,16 @@ private struct AddInvoiceSheet: View {
     @State private var netInput = ""
     @State private var vatRate = 0.19
     @State private var pickedPDF = ""
+    @State private var parsedIssuedAt: Date?
+    @State private var importedPDFFileName: String?
+    @State private var referenceNumber = ""
+    @State private var invoiceNumber = ""
+    @State private var customerNumber = ""
+    @State private var ustIdNr = ""
+    @State private var taxNumber = ""
+    @State private var customerName = ""
+    @State private var customerAddress = ""
+    @State private var customerPhone = ""
 
     private var netAmount: Double {
         Double(netInput.replacingOccurrences(of: ",", with: ".")) ?? 0
@@ -273,8 +283,42 @@ private struct AddInvoiceSheet: View {
                         if panel.runModal() == .OK, let url = panel.url {
                             pickedPDF = url.lastPathComponent
                             if title.isEmpty { title = url.deletingPathExtension().lastPathComponent }
+                            #if canImport(PDFKit)
+                            if let parsed = viewModel.importPDFInvoice(from: url) {
+                                type = .ausgangsrechnung
+                                title = parsed.title
+                                importedPDFFileName = parsed.storedPDFFileName
+                                if let net = parsed.netAmount {
+                                    netInput = String(format: "%.2f", net).replacingOccurrences(of: ".", with: ",")
+                                }
+                                if let parsedVatRate = parsed.vatRate {
+                                    vatRate = parsedVatRate
+                                }
+                                parsedIssuedAt = parsed.issuedAt
+                                referenceNumber = parsed.referenceNumber ?? ""
+                                invoiceNumber = parsed.invoiceNumber ?? ""
+                                customerNumber = parsed.customerNumber ?? ""
+                                ustIdNr = parsed.ustIdNr ?? ""
+                                taxNumber = parsed.taxNumber ?? ""
+                                customerName = parsed.customerName ?? ""
+                                customerAddress = parsed.customerAddress ?? ""
+                                customerPhone = parsed.customerPhone ?? ""
+                            }
+                            #endif
                         }
                     }
+                }
+
+                if !invoiceNumber.isEmpty || !referenceNumber.isEmpty || !customerName.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if !referenceNumber.isEmpty { Text("Bezug: \(referenceNumber)").font(.footnote) }
+                        if !invoiceNumber.isEmpty { Text("Rechnungs-Nr.: \(invoiceNumber)").font(.footnote) }
+                        if !customerNumber.isEmpty { Text("Kunden-Nr.: \(customerNumber)").font(.footnote) }
+                        if !ustIdNr.isEmpty { Text("USt-IdNr.: \(ustIdNr)").font(.footnote) }
+                        if !taxNumber.isEmpty { Text("Steuernummer: \(taxNumber)").font(.footnote) }
+                        if !customerName.isEmpty { Text("Kunde: \(customerName)").font(.footnote) }
+                    }
+                    .foregroundStyle(.secondary)
                 }
             }
 
@@ -302,7 +346,16 @@ private struct AddInvoiceSheet: View {
                         netAmount: netAmount,
                         vatRate: vatRate,
                         isPaid: false,
-                        issuedAt: Date()
+                        issuedAt: parsedIssuedAt ?? Date(),
+                        referenceNumber: referenceNumber.isEmpty ? nil : referenceNumber,
+                        invoiceNumber: invoiceNumber.isEmpty ? nil : invoiceNumber,
+                        customerNumber: customerNumber.isEmpty ? nil : customerNumber,
+                        ustIdNr: ustIdNr.isEmpty ? nil : ustIdNr,
+                        taxNumber: taxNumber.isEmpty ? nil : taxNumber,
+                        customerName: customerName.isEmpty ? nil : customerName,
+                        customerAddress: customerAddress.isEmpty ? nil : customerAddress,
+                        customerPhone: customerPhone.isEmpty ? nil : customerPhone,
+                        pdfStoredFileName: importedPDFFileName
                     )
                     viewModel.addInvoice(invoice)
                     dismiss()
@@ -346,9 +399,20 @@ private struct OffeneRechnungenSheet: View {
                 Text("\(invoice.type.rawValue) · \(invoice.source.rawValue)")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                if let number = invoice.invoiceNumber {
+                    Text("Nr.: \(number)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             Spacer()
             Text(viewModel.formatCurrency(invoice.grossAmount))
+            if invoice.pdfStoredFileName != nil {
+                Button("PDF") {
+                    viewModel.openStoredPDF(for: invoice)
+                }
+                .buttonStyle(.bordered)
+            }
             Button("Als bezahlt") {
                 viewModel.markInvoicePaid(id: invoice.id)
             }

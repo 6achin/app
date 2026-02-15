@@ -1,4 +1,10 @@
 import Foundation
+#if canImport(PDFKit)
+import PDFKit
+#endif
+#if canImport(AppKit)
+import AppKit
+#endif
 
 enum MetricType: String {
     case umsatz = "Umsatz"
@@ -57,6 +63,15 @@ struct InvoiceEntry: Identifiable, Codable {
     var isPaid: Bool
     var issuedAt: Date
     var paidAt: Date?
+    var referenceNumber: String?
+    var invoiceNumber: String?
+    var customerNumber: String?
+    var ustIdNr: String?
+    var taxNumber: String?
+    var customerName: String?
+    var customerAddress: String?
+    var customerPhone: String?
+    var pdfStoredFileName: String?
 
     init(
         id: UUID = UUID(),
@@ -67,7 +82,16 @@ struct InvoiceEntry: Identifiable, Codable {
         vatRate: Double,
         isPaid: Bool,
         issuedAt: Date,
-        paidAt: Date? = nil
+        paidAt: Date? = nil,
+        referenceNumber: String? = nil,
+        invoiceNumber: String? = nil,
+        customerNumber: String? = nil,
+        ustIdNr: String? = nil,
+        taxNumber: String? = nil,
+        customerName: String? = nil,
+        customerAddress: String? = nil,
+        customerPhone: String? = nil,
+        pdfStoredFileName: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -78,6 +102,15 @@ struct InvoiceEntry: Identifiable, Codable {
         self.isPaid = isPaid
         self.issuedAt = issuedAt
         self.paidAt = paidAt
+        self.referenceNumber = referenceNumber
+        self.invoiceNumber = invoiceNumber
+        self.customerNumber = customerNumber
+        self.ustIdNr = ustIdNr
+        self.taxNumber = taxNumber
+        self.customerName = customerName
+        self.customerAddress = customerAddress
+        self.customerPhone = customerPhone
+        self.pdfStoredFileName = pdfStoredFileName
     }
 
     var vatAmount: Double { netAmount * vatRate }
@@ -132,6 +165,22 @@ struct MonthlyStat: Identifiable {
 }
 
 final class DashboardViewModel: ObservableObject {
+    struct ParsedInvoiceData {
+        var title: String
+        var referenceNumber: String?
+        var invoiceNumber: String?
+        var customerNumber: String?
+        var ustIdNr: String?
+        var taxNumber: String?
+        var customerName: String?
+        var customerAddress: String?
+        var customerPhone: String?
+        var issuedAt: Date?
+        var netAmount: Double?
+        var vatRate: Double?
+        var storedPDFFileName: String?
+    }
+
     private struct PersistedData: Codable {
         var invoices: [InvoiceEntry]
         var fixkostenEntries: [FixkostenEntry]
@@ -188,6 +237,56 @@ final class DashboardViewModel: ObservableObject {
         invoices.append(entry)
         recalculateAllMetrics()
     }
+
+    #if canImport(PDFKit)
+    func importPDFInvoice(from url: URL) -> ParsedInvoiceData? {
+        guard let pdf = PDFDocument(url: url), let text = pdf.string, !text.isEmpty else {
+            return nil
+        }
+
+        let storedFileName = storePDFLocally(from: url)
+
+        var parsed = ParsedInvoiceData(title: url.deletingPathExtension().lastPathComponent)
+        parsed.storedPDFFileName = storedFileName
+        parsed.referenceNumber = firstMatch(in: text, pattern: #"Bezug:\s*([A-Z0-9\-]+)"#)
+        parsed.invoiceNumber = firstMatch(in: text, pattern: #"Rechnungs-Nr\.\s*:\s*([A-Z0-9\-]+)"#)
+        parsed.customerNumber = firstMatch(in: text, pattern: #"Kunden-Nr\.\s*:\s*([A-Z0-9\-]+)"#)
+        parsed.ustIdNr = firstMatch(in: text, pattern: #"USt-IdNr\.\s*:\s*([^\n\r]+)"#)?.trimmingCharacters(in: .whitespaces)
+        parsed.taxNumber = firstMatch(in: text, pattern: #"Steuernummer:\s*([0-9/\-]+)"#)
+
+        if let inv = parsed.invoiceNumber {
+            parsed.title = inv
+        } else if let ref = parsed.referenceNumber {
+            parsed.title = ref
+        }
+
+        if let dateText = firstMatch(in: text, pattern: #"Rechnungsdatum:\s*([0-9]{2}\.[0-9]{2}\.[0-9]{2,4})"#) {
+            parsed.issuedAt = parseDate(dateText)
+        }
+
+        if let vatPercentText = firstMatch(in: text, pattern: #"Ust\.\s*([0-9]{1,2})\s*%"#), let vatPercent = Double(vatPercentText) {
+            parsed.vatRate = vatPercent / 100
+        }
+
+        if let netText = firstMatch(in: text, pattern: #"Zwischensumme\s*\(netto\)\s*([0-9\.,]+)"#) {
+            parsed.netAmount = parseGermanNumber(netText)
+        }
+
+        let lines = text
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        if let telIndex = lines.firstIndex(where: { $0.lowercased().contains("tel") }) {
+            let start = max(0, telIndex - 4)
+            let customerLines = Array(lines[start..<telIndex])
+            parsed.customerName = customerLines.first
+            parsed.customerAddress = customerLines.dropFirst().joined(separator: ", ")
+            parsed.customerPhone = lines[telIndex].replacingOccurrences(of: "Tel.:", with: "").trimmingCharacters(in: .whitespaces)
+        }
+
+        return parsed
+    }
+    #endif
 
     func markInvoicePaid(id: UUID) {
         guard let index = invoices.firstIndex(where: { $0.id == id }) else { return }
@@ -325,6 +424,72 @@ final class DashboardViewModel: ObservableObject {
             try? fileManager.createDirectory(at: folderURL, withIntermediateDirectories: true)
         }
         return folderURL.appendingPathComponent("dashboard-data.json")
+    }
+
+    private var storedPDFsFolderURL: URL {
+        let folderURL = persistenceURL.deletingLastPathComponent().appendingPathComponent("pdfs", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: folderURL.path) {
+            try? FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
+        }
+        return folderURL
+    }
+
+    func storedPDFURL(for invoice: InvoiceEntry) -> URL? {
+        guard let fileName = invoice.pdfStoredFileName else { return nil }
+        return storedPDFsFolderURL.appendingPathComponent(fileName)
+    }
+
+    #if canImport(AppKit)
+    func openStoredPDF(for invoice: InvoiceEntry) {
+        guard let url = storedPDFURL(for: invoice), FileManager.default.fileExists(atPath: url.path) else { return }
+        NSWorkspace.shared.open(url)
+    }
+    #else
+    func openStoredPDF(for invoice: InvoiceEntry) {
+        _ = invoice
+    }
+    #endif
+
+    private func firstMatch(in text: String, pattern: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return nil }
+        let range = NSRange(text.startIndex..., in: text)
+        guard let match = regex.firstMatch(in: text, options: [], range: range), match.numberOfRanges > 1,
+              let valueRange = Range(match.range(at: 1), in: text) else { return nil }
+        return String(text[valueRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func parseGermanNumber(_ text: String) -> Double? {
+        let cleaned = text
+            .replacingOccurrences(of: "€", with: "")
+            .replacingOccurrences(of: ".", with: "")
+            .replacingOccurrences(of: ",", with: ".")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return Double(cleaned)
+    }
+
+    private func parseDate(_ text: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "de_DE")
+        formatter.dateFormat = "dd.MM.yy"
+        if let date = formatter.date(from: text) {
+            return date
+        }
+        formatter.dateFormat = "dd.MM.yyyy"
+        return formatter.date(from: text)
+    }
+
+    private func storePDFLocally(from sourceURL: URL) -> String? {
+        let fileName = "\(UUID().uuidString).pdf"
+        let targetURL = storedPDFsFolderURL.appendingPathComponent(fileName)
+        do {
+            if FileManager.default.fileExists(atPath: targetURL.path) {
+                try FileManager.default.removeItem(at: targetURL)
+            }
+            try FileManager.default.copyItem(at: sourceURL, to: targetURL)
+            return fileName
+        } catch {
+            return nil
+        }
     }
 
     private func persistData() {
