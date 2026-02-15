@@ -169,14 +169,7 @@ private struct AddInvoiceSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("Neue Rechnung")
-                    .font(.title3.bold())
-                Spacer()
-                Button { dismiss() } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.bordered)
-            }
+        ModalSheetContainer(title: "Neue Rechnung", onClose: { dismiss() }) {
 
             Picker("Quelle", selection: $source) {
                 ForEach(InvoiceSource.allCases) { value in
@@ -213,10 +206,10 @@ private struct AddInvoiceSheet: View {
             }
 
             TextField("Bezeichnung", text: $title)
-                .textFieldStyle(.roundedBorder)
+                .modalEditorStyle()
 
             TextField("Netto", text: $netInput)
-                .textFieldStyle(.roundedBorder)
+                .modalEditorStyle()
 
             Picker("MwSt", selection: $vatRate) {
                 Text("19%").tag(0.19)
@@ -245,18 +238,16 @@ private struct AddInvoiceSheet: View {
                 .disabled(netAmount <= 0)
             }
         }
-        .padding(20)
         .frame(width: 560)
     }
 }
 
 private struct OffeneRechnungenSheet: View {
     @ObservedObject var viewModel: DashboardViewModel
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Rechnungen offen")
-                .font(.title2.bold())
+        ModalSheetContainer(title: "Rechnungen offen", onClose: { dismiss() }) {
 
             Text("Ausgangsrechnungen")
                 .font(.headline)
@@ -272,7 +263,6 @@ private struct OffeneRechnungenSheet: View {
             }
             .frame(minHeight: 180)
         }
-        .padding(20)
         .frame(minWidth: 760, minHeight: 600)
     }
 
@@ -296,11 +286,10 @@ private struct OffeneRechnungenSheet: View {
 
 private struct UmsatzDetailsSheet: View {
     @ObservedObject var viewModel: DashboardViewModel
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Umsatz nach Monat und Gruppen")
-                .font(.title2.bold())
+        ModalSheetContainer(title: "Umsatz nach Monat und Gruppen", onClose: { dismiss() }) {
             List {
                 ForEach(viewModel.groupedInvoicesByMonth()) { group in
                     Section(group.title) {
@@ -310,7 +299,6 @@ private struct UmsatzDetailsSheet: View {
                 }
             }
         }
-        .padding(20)
         .frame(minWidth: 760, minHeight: 600)
     }
 
@@ -334,11 +322,10 @@ private struct UmsatzDetailsSheet: View {
 
 private struct UmsatzsteuerSheet: View {
     @ObservedObject var viewModel: DashboardViewModel
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Umsatzsteuer Übersicht")
-                .font(.title2.bold())
+        ModalSheetContainer(title: "Umsatzsteuer Übersicht", onClose: { dismiss() }) {
             List(viewModel.groupedInvoicesByMonth()) { group in
                 let output = group.entries.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.vatAmount }
                 let input = group.entries.filter { $0.type == .eingangsrechnung }.reduce(0) { $0 + $1.vatAmount }
@@ -354,18 +341,16 @@ private struct UmsatzsteuerSheet: View {
                 .font(.footnote)
             }
         }
-        .padding(20)
         .frame(minWidth: 760, minHeight: 520)
     }
 }
 
 private struct EinnahmenSheet: View {
     @ObservedObject var viewModel: DashboardViewModel
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Einnahmen (bezahlt, netto)")
-                .font(.title2.bold())
+        ModalSheetContainer(title: "Einnahmen (bezahlt, netto)", onClose: { dismiss() }) {
             List(viewModel.paidOutgoingInvoices) { invoice in
                 HStack {
                     VStack(alignment: .leading) {
@@ -380,7 +365,6 @@ private struct EinnahmenSheet: View {
                 }
             }
         }
-        .padding(20)
         .frame(minWidth: 760, minHeight: 520)
     }
 }
@@ -491,6 +475,7 @@ private struct AddFixkostenForm: View {
             description: $description,
             vatAmountText: viewModel.formatCurrency(vatAmount),
             grossAmountText: viewModel.formatCurrency(grossAmount),
+            onClose: { dismiss() },
             onCancel: { dismiss() },
             onSave: {
                 let entry = FixkostenEntry(
@@ -545,6 +530,7 @@ private struct EditFixkostenForm: View {
             description: $description,
             vatAmountText: viewModel.formatCurrency(vatAmount),
             grossAmountText: viewModel.formatCurrency(grossAmount),
+            onClose: { dismiss() },
             onCancel: { dismiss() },
             onSave: {
                 let updated = FixkostenEntry(
@@ -584,17 +570,16 @@ private struct FixkostenFormContent: View {
 
     let vatAmountText: String
     let grossAmountText: String
+    let onClose: () -> Void
     let onCancel: () -> Void
     let onSave: () -> Void
     let isSaveDisabled: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(title)
-                .font(.title3.bold())
+        ModalSheetContainer(title: title, onClose: onClose) {
 
             TextField("Name", text: $name)
-                .textFieldStyle(.roundedBorder)
+                .modalEditorStyle()
 
             Picker("Intervall", selection: $cycle) {
                 ForEach(BillingCycle.allCases) { interval in
@@ -606,7 +591,7 @@ private struct FixkostenFormContent: View {
             Toggle("Automatische Abbuchung", isOn: $automaticDebit)
 
             TextField("Summe Netto", text: $netInput)
-                .textFieldStyle(.roundedBorder)
+                .modalEditorStyle()
 
             Picker("MwSt", selection: $vatRate) {
                 Text("19%").tag(0.19)
@@ -629,7 +614,7 @@ private struct FixkostenFormContent: View {
             }
 
             TextField("Beschreibung", text: $description, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
+                .modalEditorStyle()
                 .lineLimit(2...4)
 
             HStack {
@@ -640,7 +625,38 @@ private struct FixkostenFormContent: View {
                     .disabled(isSaveDisabled)
             }
         }
-        .padding(20)
         .frame(width: 500)
+    }
+}
+
+private struct ModalSheetContainer<Content: View>: View {
+    let title: String
+    var onClose: (() -> Void)?
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text(title)
+                    .font(.title3.bold())
+                Spacer()
+                if let onClose {
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                    }
+                    .buttonStyle(.bordered)
+                    .help("Schließen")
+                }
+            }
+
+            content()
+        }
+        .padding(20)
+    }
+}
+
+private extension View {
+    func modalEditorStyle() -> some View {
+        textFieldStyle(.roundedBorder)
     }
 }
