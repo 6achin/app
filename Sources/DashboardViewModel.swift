@@ -71,6 +71,8 @@ struct InvoiceEntry: Identifiable, Codable {
     var customerName: String?
     var customerAddress: String?
     var customerPhone: String?
+    var paymentTermDays: Int?
+    var paymentTermsText: String?
     var pdfStoredFileName: String?
 
     init(
@@ -91,6 +93,8 @@ struct InvoiceEntry: Identifiable, Codable {
         customerName: String? = nil,
         customerAddress: String? = nil,
         customerPhone: String? = nil,
+        paymentTermDays: Int? = nil,
+        paymentTermsText: String? = nil,
         pdfStoredFileName: String? = nil
     ) {
         self.id = id
@@ -110,6 +114,8 @@ struct InvoiceEntry: Identifiable, Codable {
         self.customerName = customerName
         self.customerAddress = customerAddress
         self.customerPhone = customerPhone
+        self.paymentTermDays = paymentTermDays
+        self.paymentTermsText = paymentTermsText
         self.pdfStoredFileName = pdfStoredFileName
     }
 
@@ -188,6 +194,8 @@ final class DashboardViewModel: ObservableObject {
         var grossAmount: Double?
         var vatRate: Double?
         var lineItems: [ParsedInvoiceLineItem] = []
+        var paymentTermDays: Int?
+        var paymentTermsText: String?
         var storedPDFFileName: String?
     }
 
@@ -270,7 +278,7 @@ final class DashboardViewModel: ObservableObject {
             parsed.title = ref
         }
 
-        if let dateText = firstMatch(in: text, pattern: #"Rechnungsdatum:\s*([0-9]{2}\.[0-9]{2}\.[0-9]{2,4})"#) {
+        if let dateText = firstMatch(in: text, pattern: #"Rechnungsdatum\s*:?\s*([0-9]{2}\.[0-9]{2}\.[0-9]{2,4})"#) {
             parsed.issuedAt = parseDate(dateText)
         }
 
@@ -278,7 +286,7 @@ final class DashboardViewModel: ObservableObject {
             parsed.vatRate = vatPercent / 100
         }
 
-        if let netText = firstMatch(in: text, pattern: #"(?:Zwischensumme\s*\(netto\)|Summe\s*netto|Netto\s*gesamt)\s*([0-9\.,]+)"#) {
+        if let netText = firstMatch(in: text, pattern: #"(?:(?:Zwischensumme|Zwieschensumme)\s*\(netto\)|Summe\s*netto|Netto\s*gesamt)\s*([0-9\.,]+)"#) {
             parsed.netAmount = parseGermanNumber(netText)
         }
 
@@ -308,8 +316,18 @@ final class DashboardViewModel: ObservableObject {
             parsed.customerPhone = lines[telIndex].replacingOccurrences(of: "Tel.:", with: "").trimmingCharacters(in: .whitespaces)
         }
 
+        parsed.paymentTermsText = firstMatch(in: text, pattern: #"Zahlungsbedingungen:\s*([^\n\r]+)"#)
+        if let terms = parsed.paymentTermsText {
+            parsed.paymentTermDays = extractPaymentDays(from: terms)
+        }
+
         if parsed.vatRate == nil, let net = parsed.netAmount, let gross = parsed.grossAmount, net > 0 {
             parsed.vatRate = max(0, (gross - net) / net)
+        }
+
+        if parsed.paymentTermDays == nil {
+            parsed.paymentTermDays = 14
+            parsed.paymentTermsText = "14 Tage ab Rechnungsdatum."
         }
 
         return parsed
@@ -472,8 +490,24 @@ final class DashboardViewModel: ObservableObject {
         guard let url = storedPDFURL(for: invoice), FileManager.default.fileExists(atPath: url.path) else { return }
         NSWorkspace.shared.open(url)
     }
+
+    func openWhatsAppReminder(for invoice: InvoiceEntry) {
+        guard let phoneRaw = invoice.customerPhone else { return }
+        let phone = phoneRaw.filter { $0.isNumber }
+        guard !phone.isEmpty else { return }
+        let due = dueDate(for: invoice)?.formatted(date: .numeric, time: .omitted) ?? "bald"
+        let invoiceNo = invoice.invoiceNumber ?? invoice.referenceNumber ?? invoice.title
+        let message = "Hallo, kurze Erinnerung zur Rechnung \(invoiceNo). Fällig am \(due). Vielen Dank."
+        guard let encoded = message.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://wa.me/\(phone)?text=\(encoded)") else { return }
+        NSWorkspace.shared.open(url)
+    }
     #else
     func openStoredPDF(for invoice: InvoiceEntry) {
+        _ = invoice
+    }
+
+    func openWhatsAppReminder(for invoice: InvoiceEntry) {
         _ = invoice
     }
     #endif
@@ -559,6 +593,41 @@ final class DashboardViewModel: ObservableObject {
         }
 
         return (name, addressParts.isEmpty ? nil : addressParts.joined(separator: ", "), phone)
+    }
+
+    private func extractPaymentDays(from terms: String) -> Int? {
+        guard let match = terms.range(of: #"([0-9]{1,2})\s*Tage"#, options: [.regularExpression, .caseInsensitive]) else {
+            return nil
+        }
+        let digits = terms[match].filter(\.isNumber)
+        return Int(digits)
+    }
+
+    func dueDate(for invoice: InvoiceEntry) -> Date? {
+        guard invoice.type == .ausgangsrechnung, let days = invoice.paymentTermDays else { return nil }
+        return Calendar.current.date(byAdding: .day, value: days, to: invoice.issuedAt)
+    }
+
+    func dueState(for invoice: InvoiceEntry, now: Date = Date()) -> String {
+        guard !invoice.isPaid, let dueDate = dueDate(for: invoice) else { return "normal" }
+        if now > dueDate { return "overdue" }
+        guard let days = invoice.paymentTermDays else { return "normal" }
+        guard let halfDate = Calendar.current.date(byAdding: .day, value: max(1, days / 2), to: invoice.issuedAt) else { return "normal" }
+        if now >= halfDate { return "warning" }
+        return "normal"
+    }
+
+    func dueStatusLabel(for invoice: InvoiceEntry, now: Date = Date()) -> String? {
+        guard !invoice.isPaid, let dueDate = dueDate(for: invoice) else { return nil }
+        let state = dueState(for: invoice, now: now)
+        switch state {
+        case "overdue":
+            return "Überfällig seit \(dueDate.formatted(date: .numeric, time: .omitted))"
+        case "warning":
+            return "Fällig bis \(dueDate.formatted(date: .numeric, time: .omitted))"
+        default:
+            return nil
+        }
     }
 
     private func storePDFLocally(from sourceURL: URL) -> String? {
