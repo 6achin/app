@@ -8,6 +8,15 @@ enum MetricType: String {
     case fixkosten = "Fixkosten"
 }
 
+enum BillingCycle: String, CaseIterable, Identifiable {
+    case monatlich = "Monatlich"
+    case quartalsweise = "Quartalsweise"
+    case halbjaehrlich = "Halbjährlich"
+    case jaehrlich = "Jährlich"
+
+    var id: String { rawValue }
+}
+
 struct MetricCard: Identifiable {
     let id: UUID
     let type: MetricType
@@ -24,73 +33,58 @@ struct MetricCard: Identifiable {
     var title: String { type.rawValue }
 }
 
-struct TransactionItem: Identifiable {
-    let id: UUID
-    var date: String
-    var category: String
-    var amount: String
-    var status: String
-
-    init(id: UUID = UUID(), date: String, category: String, amount: String, status: String) {
-        self.id = id
-        self.date = date
-        self.category = category
-        self.amount = amount
-        self.status = status
-    }
-}
-
 struct FixkostenEntry: Identifiable {
     let id: UUID
     var name: String
-    var bookingDate: Date
+    var cycle: BillingCycle
     var automaticDebit: Bool
     var netAmount: Double
+    var vatRate: Double
     var description: String
 
     init(
         id: UUID = UUID(),
         name: String,
-        bookingDate: Date,
+        cycle: BillingCycle,
         automaticDebit: Bool,
         netAmount: Double,
+        vatRate: Double,
         description: String
     ) {
         self.id = id
         self.name = name
-        self.bookingDate = bookingDate
+        self.cycle = cycle
         self.automaticDebit = automaticDebit
         self.netAmount = netAmount
+        self.vatRate = vatRate
         self.description = description
     }
 
     var vatAmount: Double {
-        netAmount * 0.19
+        netAmount * vatRate
     }
 
     var grossAmount: Double {
         netAmount + vatAmount
+    }
+
+    var vatLabel: String {
+        "\(Int(vatRate * 100))%"
     }
 }
 
 final class DashboardViewModel: ObservableObject {
     @Published var cards: [MetricCard] = [
         MetricCard(type: .umsatz, value: "€ 124.000", note: "+12 %"),
-        MetricCard(type: .umsatzsteuer, value: "€ 23.560", note: "19 %"),
+        MetricCard(type: .umsatzsteuer, value: "€ 23.560", note: "variabel"),
         MetricCard(type: .rechnungenOffen, value: "8", note: "€ 15.400"),
         MetricCard(type: .einnahmen, value: "€ 81.700", note: "monatlich"),
         MetricCard(type: .fixkosten, value: "€ 34.200", note: "monatlich")
     ]
 
-    @Published var transactions: [TransactionItem] = [
-        TransactionItem(date: "12.02.2026", category: "Einkauf", amount: "€ 5.400", status: "Bezahlt"),
-        TransactionItem(date: "11.02.2026", category: "Marketing", amount: "€ 3.250", status: "Offen"),
-        TransactionItem(date: "09.02.2026", category: "Logistik", amount: "€ 1.720", status: "Bezahlt")
-    ]
-
     @Published var fixkostenEntries: [FixkostenEntry] = [
-        FixkostenEntry(name: "Büromiete", bookingDate: Date(), automaticDebit: true, netAmount: 2000, description: "Monatliche Miete"),
-        FixkostenEntry(name: "Software", bookingDate: Date(), automaticDebit: false, netAmount: 320, description: "Tools & Lizenzen")
+        FixkostenEntry(name: "Büromiete", cycle: .monatlich, automaticDebit: true, netAmount: 2000, vatRate: 0.19, description: "Monatliche Miete"),
+        FixkostenEntry(name: "Hosting", cycle: .halbjaehrlich, automaticDebit: false, netAmount: 600, vatRate: 0.19, description: "Server und Domain")
     ]
 
     private let currencyFormatter: NumberFormatter = {
@@ -108,6 +102,12 @@ final class DashboardViewModel: ObservableObject {
 
     func addFixkostenEntry(_ entry: FixkostenEntry) {
         fixkostenEntries.append(entry)
+        recalculateFixkostenCard()
+    }
+
+    func updateFixkostenEntry(_ entry: FixkostenEntry) {
+        guard let index = fixkostenEntries.firstIndex(where: { $0.id == entry.id }) else { return }
+        fixkostenEntries[index] = entry
         recalculateFixkostenCard()
     }
 

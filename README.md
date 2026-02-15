@@ -17,12 +17,15 @@ swift run BusinessAccountingApp
 - `bachin` / `12345` (Admin)
 - `manager` / `biz2026`
 
-## Neue Funktion: Fixkosten-Workflow
+## Fixkosten-Workflow
 
 - Auf die Karte **Fixkosten** klicken.
-- Mit **Hinzufügen (+)** eine neue Fixkosten-Position anlegen.
-- Felder: Name, Datum, automatische Abbuchung (Ja/Nein), Summe Netto, Beschreibung.
-- **MwSt (19%)** und **Brutto** werden automatisch aus Netto berechnet.
+- Mit **Hinzufügen (+)** neue Position erstellen.
+- Felder: Name, Intervall (monatlich/quartalsweise/halbjährlich/jährlich), automatische Abbuchung, Netto, Beschreibung.
+- MwSt kann auf **19%**, **7%** oder **0%** gesetzt werden.
+- **MwSt** und **Brutto** werden automatisch berechnet.
+- Doppelklick auf eine Zeile öffnet den Bearbeitungsdialog.
+- Schließen per **X**, **Abbrechen** oder Klick außerhalb des Dialogs.
 
 ## Hinweis zur Container-Umgebung
 

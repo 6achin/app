@@ -9,7 +9,7 @@ struct DashboardView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(nsColor: .windowBackgroundColor), Color.blue.opacity(0.08)],
+                colors: [Color(nsColor: .windowBackgroundColor), Color.blue.opacity(0.10)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -27,6 +27,8 @@ struct DashboardView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     header
 
+                    greetingPanel
+
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
                             ForEach(viewModel.cards) { card in
@@ -37,10 +39,11 @@ struct DashboardView: View {
                                 }
                             }
                         }
+                        .padding(.bottom, 8)
                     }
                     .scrollIndicators(.hidden)
 
-                    transactionsSection
+                    Spacer(minLength: 0)
                 }
                 .padding(24)
             }
@@ -76,26 +79,21 @@ struct DashboardView: View {
         }
     }
 
-    private var transactionsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Letzte Buchungen")
-                .font(.headline)
-
-            List {
-                ForEach($viewModel.transactions) { $item in
-                    HStack(spacing: 8) {
-                        TextField("Datum", text: $item.date)
-                        TextField("Kategorie", text: $item.category)
-                        TextField("Betrag", text: $item.amount)
-                        TextField("Status", text: $item.status)
-                    }
-                    .textFieldStyle(.roundedBorder)
-                    .padding(.vertical, 2)
-                }
+    private var greetingPanel: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Willkommen zurück, bachin 👋")
+                    .font(.title3.bold())
+                Text("Hier siehst du deine wichtigsten Kennzahlen. Klicke auf Fixkosten, um Positionen zu verwalten.")
+                    .foregroundStyle(.secondary)
             }
-            .frame(minHeight: 220)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            Spacer()
         }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.45))
+        )
     }
 }
 
@@ -139,7 +137,10 @@ private struct KPIButtonCard: View {
 
 private struct FixkostenSheet: View {
     @ObservedObject var viewModel: DashboardViewModel
+    @Environment(\.dismiss) private var dismiss
+
     @State private var showAddForm = false
+    @State private var editingEntry: FixkostenEntry?
 
     var body: some View {
         NavigationStack {
@@ -148,13 +149,26 @@ private struct FixkostenSheet: View {
                     Text("Fixkosten")
                         .font(.title.bold())
                     Spacer()
+
                     Button {
                         showAddForm = true
                     } label: {
                         Label("Hinzufügen", systemImage: "plus")
                     }
                     .buttonStyle(.borderedProminent)
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .buttonStyle(.bordered)
+                    .help("Schließen")
                 }
+
+                Text("Doppelklick auf eine Zeile, um sie zu bearbeiten.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
 
                 List {
                     ForEach(viewModel.fixkostenEntries) { entry in
@@ -163,21 +177,32 @@ private struct FixkostenSheet: View {
                                 .font(.headline)
                             Text(entry.description)
                                 .foregroundStyle(.secondary)
-                            Text("Netto: \(viewModel.formatCurrency(entry.netAmount)) · MwSt 19%: \(viewModel.formatCurrency(entry.vatAmount)) · Brutto: \(viewModel.formatCurrency(entry.grossAmount))")
+                            Text("Netto: \(viewModel.formatCurrency(entry.netAmount)) · MwSt \(entry.vatLabel): \(viewModel.formatCurrency(entry.vatAmount)) · Brutto: \(viewModel.formatCurrency(entry.grossAmount))")
                                 .font(.callout)
-                            Text("Datum: \(entry.bookingDate.formatted(date: .numeric, time: .omitted)) · Automatisch: \(entry.automaticDebit ? "Ja" : "Nein")")
+                            Text("Intervall: \(entry.cycle.rawValue) · Automatisch: \(entry.automaticDebit ? "Ja" : "Nein")")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.vertical, 4)
+                        .contentShape(Rectangle())
+                        .onTapGesture(count: 2) {
+                            editingEntry = entry
+                        }
                     }
                 }
             }
             .padding(20)
         }
-        .frame(minWidth: 760, minHeight: 520)
+        .frame(minWidth: 780, minHeight: 560)
         .sheet(isPresented: $showAddForm) {
             AddFixkostenForm(viewModel: viewModel)
+                .presentationDetents([.medium])
+                .interactiveDismissDisabled(false)
+        }
+        .sheet(item: $editingEntry) { entry in
+            EditFixkostenForm(viewModel: viewModel, entry: entry)
+                .presentationDetents([.medium])
+                .interactiveDismissDisabled(false)
         }
     }
 }
@@ -187,9 +212,10 @@ private struct AddFixkostenForm: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var name = ""
-    @State private var bookingDate = Date()
+    @State private var cycle: BillingCycle = .monatlich
     @State private var automaticDebit = true
     @State private var netInput = ""
+    @State private var vatRate: Double = 0.19
     @State private var description = ""
 
     private var netAmount: Double {
@@ -197,7 +223,7 @@ private struct AddFixkostenForm: View {
     }
 
     private var vatAmount: Double {
-        netAmount * 0.19
+        netAmount * vatRate
     }
 
     private var grossAmount: Double {
@@ -205,30 +231,150 @@ private struct AddFixkostenForm: View {
     }
 
     var body: some View {
+        FixkostenFormContent(
+            title: "Neue Fixkosten",
+            name: $name,
+            cycle: $cycle,
+            automaticDebit: $automaticDebit,
+            netInput: $netInput,
+            vatRate: $vatRate,
+            description: $description,
+            vatAmountText: viewModel.formatCurrency(vatAmount),
+            grossAmountText: viewModel.formatCurrency(grossAmount),
+            onCancel: { dismiss() },
+            onSave: {
+                let entry = FixkostenEntry(
+                    name: name.isEmpty ? "Neue Position" : name,
+                    cycle: cycle,
+                    automaticDebit: automaticDebit,
+                    netAmount: netAmount,
+                    vatRate: vatRate,
+                    description: description
+                )
+                viewModel.addFixkostenEntry(entry)
+                dismiss()
+            },
+            isSaveDisabled: netAmount <= 0
+        )
+    }
+}
+
+private struct EditFixkostenForm: View {
+    @ObservedObject var viewModel: DashboardViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    let entry: FixkostenEntry
+
+    @State private var name = ""
+    @State private var cycle: BillingCycle = .monatlich
+    @State private var automaticDebit = true
+    @State private var netInput = ""
+    @State private var vatRate: Double = 0.19
+    @State private var description = ""
+
+    private var netAmount: Double {
+        Double(netInput.replacingOccurrences(of: ",", with: ".")) ?? 0
+    }
+
+    private var vatAmount: Double {
+        netAmount * vatRate
+    }
+
+    private var grossAmount: Double {
+        netAmount + vatAmount
+    }
+
+    var body: some View {
+        FixkostenFormContent(
+            title: "Fixkosten bearbeiten",
+            name: $name,
+            cycle: $cycle,
+            automaticDebit: $automaticDebit,
+            netInput: $netInput,
+            vatRate: $vatRate,
+            description: $description,
+            vatAmountText: viewModel.formatCurrency(vatAmount),
+            grossAmountText: viewModel.formatCurrency(grossAmount),
+            onCancel: { dismiss() },
+            onSave: {
+                let updated = FixkostenEntry(
+                    id: entry.id,
+                    name: name,
+                    cycle: cycle,
+                    automaticDebit: automaticDebit,
+                    netAmount: netAmount,
+                    vatRate: vatRate,
+                    description: description
+                )
+                viewModel.updateFixkostenEntry(updated)
+                dismiss()
+            },
+            isSaveDisabled: name.isEmpty || netAmount <= 0
+        )
+        .onAppear {
+            name = entry.name
+            cycle = entry.cycle
+            automaticDebit = entry.automaticDebit
+            netInput = String(format: "%.2f", entry.netAmount).replacingOccurrences(of: ".", with: ",")
+            vatRate = entry.vatRate
+            description = entry.description
+        }
+    }
+}
+
+private struct FixkostenFormContent: View {
+    let title: String
+
+    @Binding var name: String
+    @Binding var cycle: BillingCycle
+    @Binding var automaticDebit: Bool
+    @Binding var netInput: String
+    @Binding var vatRate: Double
+    @Binding var description: String
+
+    let vatAmountText: String
+    let grossAmountText: String
+    let onCancel: () -> Void
+    let onSave: () -> Void
+    let isSaveDisabled: Bool
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Neue Fixkosten")
+            Text(title)
                 .font(.title3.bold())
 
             TextField("Name", text: $name)
                 .textFieldStyle(.roundedBorder)
 
-            DatePicker("Datum", selection: $bookingDate, displayedComponents: .date)
+            Picker("Intervall", selection: $cycle) {
+                ForEach(BillingCycle.allCases) { interval in
+                    Text(interval.rawValue).tag(interval)
+                }
+            }
+            .pickerStyle(.segmented)
 
             Toggle("Automatische Abbuchung", isOn: $automaticDebit)
 
             TextField("Summe Netto", text: $netInput)
                 .textFieldStyle(.roundedBorder)
 
+            Picker("MwSt", selection: $vatRate) {
+                Text("19%").tag(0.19)
+                Text("7%").tag(0.07)
+                Text("0%").tag(0.0)
+            }
+            .pickerStyle(.segmented)
+
             HStack {
-                Text("MwSt 19%")
+                Text("MwSt")
                 Spacer()
-                Text(viewModel.formatCurrency(vatAmount))
+                Text(vatAmountText)
             }
 
             HStack {
                 Text("Brutto")
                 Spacer()
-                Text(viewModel.formatCurrency(grossAmount))
+                Text(grossAmountText)
                     .fontWeight(.semibold)
             }
 
@@ -238,24 +384,13 @@ private struct AddFixkostenForm: View {
 
             HStack {
                 Spacer()
-                Button("Abbrechen") { dismiss() }
-
-                Button("Speichern") {
-                    let entry = FixkostenEntry(
-                        name: name.isEmpty ? "Neue Position" : name,
-                        bookingDate: bookingDate,
-                        automaticDebit: automaticDebit,
-                        netAmount: netAmount,
-                        description: description
-                    )
-                    viewModel.addFixkostenEntry(entry)
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(netAmount <= 0)
+                Button("Abbrechen", role: .cancel, action: onCancel)
+                Button("Speichern", action: onSave)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isSaveDisabled)
             }
         }
         .padding(20)
-        .frame(width: 460)
+        .frame(width: 500)
     }
 }
