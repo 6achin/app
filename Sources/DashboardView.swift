@@ -1,49 +1,74 @@
 import SwiftUI
+import AppKit
 
 struct DashboardView: View {
     @ObservedObject var viewModel: DashboardViewModel
     let onLogout: () -> Void
 
     @State private var showFixkostenSheet = false
+    @State private var showAddInvoiceSheet = false
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color(nsColor: .windowBackgroundColor), Color.blue.opacity(0.10)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            Color(nsColor: .windowBackgroundColor)
+                .ignoresSafeArea()
 
             NavigationSplitView {
                 List {
                     Label("Dashboard", systemImage: "rectangle.grid.2x2")
-                    Label("Umsatz", systemImage: "chart.bar.xaxis")
-                    Label("Kosten", systemImage: "eurosign.circle")
-                    Label("Berichte", systemImage: "doc.text")
+                    Label("Rechnungen", systemImage: "doc.text")
+                    Label("Fixkosten", systemImage: "eurosign.circle")
                 }
                 .navigationTitle("Menü")
             } detail: {
                 VStack(alignment: .leading, spacing: 18) {
-                    header
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Dashboard")
+                                .font(.system(size: 34, weight: .bold, design: .rounded))
+                            Text("Willkommen zurück, bachin")
+                                .foregroundStyle(.secondary)
+                        }
 
-                    greetingPanel
+                        Spacer()
 
-                    ScrollView {
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
-                            ForEach(viewModel.cards) { card in
-                                KPIButtonCard(card: card) {
-                                    if card.type == .fixkosten {
-                                        showFixkostenSheet = true
-                                    }
+                        Button {
+                            showAddInvoiceSheet = true
+                        } label: {
+                            Label("Hinzufügen", systemImage: "plus")
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button("Abmelden", action: onLogout)
+                            .buttonStyle(.bordered)
+                    }
+
+                    Text("Umsatz = Netto aus Ausgangsrechnungen. Umsatzsteuer = Ausgangssteuer - Vorsteuer. Einnahmen = Umsatz - Zahllast - Kredite - Fixkosten.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 4)
+
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                        ForEach(viewModel.cards) { card in
+                            KPIButtonCard(card: card) {
+                                if card.type == .fixkosten {
+                                    showFixkostenSheet = true
                                 }
                             }
                         }
-                        .padding(.bottom, 8)
                     }
-                    .scrollIndicators(.hidden)
 
-                    Spacer(minLength: 0)
+                    HStack {
+                        Text("Kredite/Leasing monatlich")
+                        Spacer()
+                        Text(viewModel.formatCurrency(viewModel.kreditUndDarlehenMonatlich))
+                            .fontWeight(.semibold)
+                    }
+                    .padding(12)
+                    .background(Color(nsColor: .controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                    Spacer()
                 }
                 .padding(24)
             }
@@ -51,49 +76,14 @@ struct DashboardView: View {
         .sheet(isPresented: $showFixkostenSheet) {
             FixkostenSheet(viewModel: viewModel)
         }
+        .sheet(isPresented: $showAddInvoiceSheet) {
+            AddInvoiceSheet(viewModel: viewModel)
+                .presentationDetents([.medium, .large])
+                .interactiveDismissDisabled(false)
+        }
         .onAppear {
-            viewModel.recalculateFixkostenCard()
+            viewModel.recalculateAllMetrics()
         }
-    }
-
-    private var header: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Geschäfts-Dashboard")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                Text("Schnell, übersichtlich und editierbar")
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Button {
-                viewModel.addCard()
-            } label: {
-                Label("Hinzufügen", systemImage: "plus")
-            }
-            .buttonStyle(.borderedProminent)
-
-            Button("Abmelden", action: onLogout)
-                .buttonStyle(.bordered)
-        }
-    }
-
-    private var greetingPanel: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Willkommen zurück, bachin 👋")
-                    .font(.title3.bold())
-                Text("Hier siehst du deine wichtigsten Kennzahlen. Klicke auf Fixkosten, um Positionen zu verwalten.")
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(0.45))
-        )
     }
 }
 
@@ -110,28 +100,127 @@ private struct KPIButtonCard: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                     if card.type == .fixkosten {
-                        Image(systemName: "arrow.right.circle.fill")
+                        Image(systemName: "arrow.right.circle")
                             .foregroundStyle(.blue)
                     }
                 }
 
                 Text(card.value)
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .font(.title3.weight(.semibold))
 
                 Text(card.note)
-                    .font(.callout)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor))
-                    .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
-            )
+            .frame(maxWidth: .infinity, minHeight: 110, alignment: .leading)
+            .padding(14)
+            .background(Color(nsColor: .controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct AddInvoiceSheet: View {
+    @ObservedObject var viewModel: DashboardViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var source: InvoiceSource = .pdf
+    @State private var type: InvoiceType = .ausgangsrechnung
+    @State private var title = ""
+    @State private var netInput = ""
+    @State private var vatRate = 0.19
+    @State private var isPaid = false
+    @State private var pickedPDF = ""
+
+    private var netAmount: Double {
+        Double(netInput.replacingOccurrences(of: ",", with: ".")) ?? 0
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Neue Rechnung")
+                    .font(.title3.bold())
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Picker("Quelle", selection: $source) {
+                ForEach(InvoiceSource.allCases) { value in
+                    Text(value.rawValue).tag(value)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Picker("Typ", selection: $type) {
+                ForEach(InvoiceType.allCases) { value in
+                    Text(value.rawValue).tag(value)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            if source == .pdf {
+                HStack {
+                    Text(pickedPDF.isEmpty ? "Keine PDF ausgewählt" : pickedPDF)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    Spacer()
+                    Button("PDF wählen") {
+                        let panel = NSOpenPanel()
+                        panel.allowedContentTypes = [.pdf]
+                        panel.canChooseFiles = true
+                        panel.canChooseDirectories = false
+                        panel.allowsMultipleSelection = false
+                        if panel.runModal() == .OK, let url = panel.url {
+                            pickedPDF = url.lastPathComponent
+                            if title.isEmpty { title = url.deletingPathExtension().lastPathComponent }
+                        }
+                    }
+                }
+            }
+
+            TextField("Bezeichnung", text: $title)
+                .textFieldStyle(.roundedBorder)
+
+            TextField("Netto", text: $netInput)
+                .textFieldStyle(.roundedBorder)
+
+            Picker("MwSt", selection: $vatRate) {
+                Text("19%").tag(0.19)
+                Text("7%").tag(0.07)
+                Text("0%").tag(0.0)
+            }
+            .pickerStyle(.segmented)
+
+            Toggle("Bereits bezahlt", isOn: $isPaid)
+
+            HStack {
+                Spacer()
+                Button("Abbrechen", role: .cancel) { dismiss() }
+                Button("Speichern") {
+                    let invoice = InvoiceEntry(
+                        title: title.isEmpty ? "Neue Rechnung" : title,
+                        source: source,
+                        type: type,
+                        netAmount: netAmount,
+                        vatRate: vatRate,
+                        isPaid: isPaid
+                    )
+                    viewModel.addInvoice(invoice)
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(netAmount <= 0)
+            }
+        }
+        .padding(20)
+        .frame(width: 560)
     }
 }
 

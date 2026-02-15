@@ -17,6 +17,19 @@ swift run BusinessAccountingApp
 - `bachin` / `12345` (Admin)
 - `manager` / `biz2026`
 
+## Kennzahlen-Logik im Dashboard
+
+- **Umsatz** = Summe der Netto-Beträge aus Ausgangsrechnungen.
+- **Umsatzsteuer (Zahllast)** = Ausgangssteuer - Vorsteuer aus Eingangsrechnungen.
+- **Einnahmen** = Umsatz - Umsatzsteuer-Zahllast - Kredite/Darlehen - Fixkosten (brutto).
+
+## Hinzufügen-Workflow
+
+Die Schaltfläche **Hinzufügen** erlaubt:
+- Auswahl der Quelle: **PDF-Rechnung** oder **Manuelle Eingabe**.
+- Auswahl des Typs: **Eingangsrechnung** oder **Ausgangsrechnung**.
+- Eingabe von Netto, MwSt-Satz und Zahlungsstatus.
+
 ## Fixkosten-Workflow
 
 - Auf die Karte **Fixkosten** klicken.

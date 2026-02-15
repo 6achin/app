@@ -17,6 +17,20 @@ enum BillingCycle: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum InvoiceSource: String, CaseIterable, Identifiable {
+    case pdf = "PDF-Rechnung"
+    case manual = "Manuelle Eingabe"
+
+    var id: String { rawValue }
+}
+
+enum InvoiceType: String, CaseIterable, Identifiable {
+    case eingangsrechnung = "Eingangsrechnung"
+    case ausgangsrechnung = "Ausgangsrechnung"
+
+    var id: String { rawValue }
+}
+
 struct MetricCard: Identifiable {
     let id: UUID
     let type: MetricType
@@ -31,6 +45,37 @@ struct MetricCard: Identifiable {
     }
 
     var title: String { type.rawValue }
+}
+
+struct InvoiceEntry: Identifiable {
+    let id: UUID
+    var title: String
+    var source: InvoiceSource
+    var type: InvoiceType
+    var netAmount: Double
+    var vatRate: Double
+    var isPaid: Bool
+
+    init(
+        id: UUID = UUID(),
+        title: String,
+        source: InvoiceSource,
+        type: InvoiceType,
+        netAmount: Double,
+        vatRate: Double,
+        isPaid: Bool
+    ) {
+        self.id = id
+        self.title = title
+        self.source = source
+        self.type = type
+        self.netAmount = netAmount
+        self.vatRate = vatRate
+        self.isPaid = isPaid
+    }
+
+    var vatAmount: Double { netAmount * vatRate }
+    var grossAmount: Double { netAmount + vatAmount }
 }
 
 struct FixkostenEntry: Identifiable {
@@ -60,32 +105,32 @@ struct FixkostenEntry: Identifiable {
         self.description = description
     }
 
-    var vatAmount: Double {
-        netAmount * vatRate
-    }
-
-    var grossAmount: Double {
-        netAmount + vatAmount
-    }
-
-    var vatLabel: String {
-        "\(Int(vatRate * 100))%"
-    }
+    var vatAmount: Double { netAmount * vatRate }
+    var grossAmount: Double { netAmount + vatAmount }
+    var vatLabel: String { "\(Int(vatRate * 100))%" }
 }
 
 final class DashboardViewModel: ObservableObject {
     @Published var cards: [MetricCard] = [
-        MetricCard(type: .umsatz, value: "€ 124.000", note: "+12 %"),
-        MetricCard(type: .umsatzsteuer, value: "€ 23.560", note: "variabel"),
-        MetricCard(type: .rechnungenOffen, value: "8", note: "€ 15.400"),
-        MetricCard(type: .einnahmen, value: "€ 81.700", note: "monatlich"),
-        MetricCard(type: .fixkosten, value: "€ 34.200", note: "monatlich")
+        MetricCard(type: .umsatz, value: "€ 0,00", note: "Netto aus Ausgangsrechnungen"),
+        MetricCard(type: .umsatzsteuer, value: "€ 0,00", note: "Zahllast (Ausgang - Eingang)"),
+        MetricCard(type: .rechnungenOffen, value: "0", note: "offene Ausgangsrechnungen"),
+        MetricCard(type: .einnahmen, value: "€ 0,00", note: "nach Steuer, Krediten, Fixkosten"),
+        MetricCard(type: .fixkosten, value: "€ 0,00", note: "0 Positionen")
+    ]
+
+    @Published var invoices: [InvoiceEntry] = [
+        InvoiceEntry(title: "Rechnung #1001", source: .manual, type: .ausgangsrechnung, netAmount: 8200, vatRate: 0.19, isPaid: true),
+        InvoiceEntry(title: "Rechnung #1002", source: .manual, type: .ausgangsrechnung, netAmount: 5400, vatRate: 0.19, isPaid: false),
+        InvoiceEntry(title: "Lieferant #230", source: .manual, type: .eingangsrechnung, netAmount: 2200, vatRate: 0.19, isPaid: true)
     ]
 
     @Published var fixkostenEntries: [FixkostenEntry] = [
         FixkostenEntry(name: "Büromiete", cycle: .monatlich, automaticDebit: true, netAmount: 2000, vatRate: 0.19, description: "Monatliche Miete"),
         FixkostenEntry(name: "Hosting", cycle: .halbjaehrlich, automaticDebit: false, netAmount: 600, vatRate: 0.19, description: "Server und Domain")
     ]
+
+    @Published var kreditUndDarlehenMonatlich: Double = 900
 
     private let currencyFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
@@ -96,26 +141,57 @@ final class DashboardViewModel: ObservableObject {
         return formatter
     }()
 
-    func addCard() {
-        cards.append(MetricCard(type: .einnahmen, value: "€ 0", note: "neu"))
+    func addInvoice(_ entry: InvoiceEntry) {
+        invoices.append(entry)
+        recalculateAllMetrics()
     }
 
     func addFixkostenEntry(_ entry: FixkostenEntry) {
         fixkostenEntries.append(entry)
-        recalculateFixkostenCard()
+        recalculateAllMetrics()
     }
 
     func updateFixkostenEntry(_ entry: FixkostenEntry) {
         guard let index = fixkostenEntries.firstIndex(where: { $0.id == entry.id }) else { return }
         fixkostenEntries[index] = entry
-        recalculateFixkostenCard()
+        recalculateAllMetrics()
     }
 
-    func recalculateFixkostenCard() {
-        let totalGross = fixkostenEntries.reduce(0) { $0 + $1.grossAmount }
-        guard let index = cards.firstIndex(where: { $0.type == .fixkosten }) else { return }
-        cards[index].value = formatCurrency(totalGross)
-        cards[index].note = "\(fixkostenEntries.count) Positionen"
+    func recalculateAllMetrics() {
+        let umsatzNetto = invoices
+            .filter { $0.type == .ausgangsrechnung }
+            .reduce(0) { $0 + $1.netAmount }
+
+        let outputVat = invoices
+            .filter { $0.type == .ausgangsrechnung }
+            .reduce(0) { $0 + $1.vatAmount }
+
+        let inputVat = invoices
+            .filter { $0.type == .eingangsrechnung }
+            .reduce(0) { $0 + $1.vatAmount }
+
+        let vatPayable = outputVat - inputVat
+
+        let offeneAusgangsrechnungen = invoices.filter { $0.type == .ausgangsrechnung && !$0.isPaid }
+
+        let totalFixkostenBrutto = fixkostenEntries.reduce(0) { $0 + $1.grossAmount }
+
+        let einnahmenNettoNachAbzug = umsatzNetto
+            - max(vatPayable, 0)
+            - kreditUndDarlehenMonatlich
+            - totalFixkostenBrutto
+
+        setCard(type: .umsatz, value: formatCurrency(umsatzNetto), note: "Netto aus Ausgangsrechnungen")
+        setCard(type: .umsatzsteuer, value: formatCurrency(vatPayable), note: "Ausgang \(formatCurrency(outputVat)) - Eingang \(formatCurrency(inputVat))")
+        setCard(type: .rechnungenOffen, value: "\(offeneAusgangsrechnungen.count)", note: formatCurrency(offeneAusgangsrechnungen.reduce(0) { $0 + $1.grossAmount }))
+        setCard(type: .einnahmen, value: formatCurrency(einnahmenNettoNachAbzug), note: "nach Steuern, Krediten & Fixkosten")
+        setCard(type: .fixkosten, value: formatCurrency(totalFixkostenBrutto), note: "\(fixkostenEntries.count) Positionen")
+    }
+
+    private func setCard(type: MetricType, value: String, note: String) {
+        guard let index = cards.firstIndex(where: { $0.type == type }) else { return }
+        cards[index].value = value
+        cards[index].note = note
     }
 
     func formatCurrency(_ value: Double) -> String {
