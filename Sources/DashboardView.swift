@@ -25,8 +25,24 @@ struct DashboardView: View {
 
     @State private var selectedSheet: DashboardSheet?
     @State private var showAddInvoiceSheet = false
+    @State private var selectedMonthStart: Date?
 
     private let cardColumns = [GridItem(.adaptive(minimum: 260), spacing: 12)]
+
+    private var availableMonths: [Date] {
+        viewModel.availableMonths()
+    }
+
+    private var activeMonthStart: Date {
+        if let selectedMonthStart, availableMonths.contains(selectedMonthStart) {
+            return selectedMonthStart
+        }
+        return availableMonths.first ?? Calendar.current.startOfDay(for: Date())
+    }
+
+    private var displayedCards: [MetricCard] {
+        viewModel.metricCards(for: activeMonthStart)
+    }
 
     var body: some View {
         ZStack {
@@ -73,8 +89,10 @@ struct DashboardView: View {
 
                     monthlyOverview
 
+                    monthNavigation
+
                     LazyVGrid(columns: cardColumns, spacing: 12) {
-                        ForEach(viewModel.cards) { card in
+                        ForEach(displayedCards) { card in
                             KPIButtonCard(card: card) {
                                 switch card.type {
                                 case .umsatz: selectedSheet = .umsatz
@@ -113,11 +131,60 @@ struct DashboardView: View {
                 .interactiveDismissDisabled(false)
         }
         .onAppear {
+            if selectedMonthStart == nil {
+                selectedMonthStart = availableMonths.first
+            }
             viewModel.recalculateAllMetrics()
         }
     }
 
+    private var monthNavigation: some View {
+        HStack(spacing: 10) {
+            Button {
+                selectPreviousMonth()
+            } label: {
+                Image(systemName: "chevron.left")
+            }
+            .buttonStyle(.bordered)
+            .disabled(!canSelectPreviousMonth)
+
+            Text(viewModel.monthTitle(for: activeMonthStart))
+                .font(.subheadline.weight(.semibold))
+                .frame(minWidth: 170)
+
+            Button {
+                selectNextMonth()
+            } label: {
+                Image(systemName: "chevron.right")
+            }
+            .buttonStyle(.bordered)
+            .disabled(!canSelectNextMonth)
+        }
+    }
+
+    private var canSelectPreviousMonth: Bool {
+        guard let currentIndex = availableMonths.firstIndex(of: activeMonthStart) else { return false }
+        return currentIndex < availableMonths.count - 1
+    }
+
+    private var canSelectNextMonth: Bool {
+        guard let currentIndex = availableMonths.firstIndex(of: activeMonthStart) else { return false }
+        return currentIndex > 0
+    }
+
+    private func selectPreviousMonth() {
+        guard let currentIndex = availableMonths.firstIndex(of: activeMonthStart), currentIndex < availableMonths.count - 1 else { return }
+        selectedMonthStart = availableMonths[currentIndex + 1]
+    }
+
+    private func selectNextMonth() {
+        guard let currentIndex = availableMonths.firstIndex(of: activeMonthStart), currentIndex > 0 else { return }
+        selectedMonthStart = availableMonths[currentIndex - 1]
+    }
+
     private var monthlyOverview: some View {
+        let stat = viewModel.monthlyStat(for: activeMonthStart)
+
         VStack(alignment: .leading, spacing: 10) {
             Text("Monatsstatistik")
                 .font(.headline.weight(.semibold))
@@ -135,22 +202,20 @@ struct DashboardView: View {
 
             Divider()
 
-            ForEach(viewModel.monthlyStats()) { stat in
-                HStack(spacing: 16) {
-                    Text(stat.title)
-                    Spacer()
-                    Text(viewModel.formatCurrency(stat.umsatz))
-                        .fontWeight(.medium)
-                        .monospacedDigit()
-                        .frame(width: 140, alignment: .trailing)
-                    Text(viewModel.formatCurrency(stat.einnahmen))
-                        .fontWeight(.semibold)
-                        .monospacedDigit()
-                        .frame(width: 140, alignment: .trailing)
-                }
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 16) {
+                Text(stat.title)
+                Spacer()
+                Text(viewModel.formatCurrency(stat.umsatz))
+                    .fontWeight(.medium)
+                    .monospacedDigit()
+                    .frame(width: 140, alignment: .trailing)
+                Text(viewModel.formatCurrency(stat.einnahmen))
+                    .fontWeight(.semibold)
+                    .monospacedDigit()
+                    .frame(width: 140, alignment: .trailing)
             }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
         }
         .padding(16)
         .background(.regularMaterial)

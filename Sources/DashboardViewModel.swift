@@ -218,6 +218,18 @@ final class DashboardViewModel: ObservableObject {
             .sorted { $0.monthStart > $1.monthStart }
     }
 
+    func availableMonths() -> [Date] {
+        let months = Set(invoices.map { startOfMonth(for: $0.issuedAt) })
+        if months.isEmpty {
+            return [startOfMonth(for: Date())]
+        }
+        return months.sorted(by: >)
+    }
+
+    func monthTitle(for monthStart: Date) -> String {
+        monthFormatter.string(from: monthStart).capitalized
+    }
+
     func monthlyStats() -> [MonthlyStat] {
         let grouped = Dictionary(grouping: invoices) { startOfMonth(for: $0.issuedAt) }
         return grouped.map { month, entries in
@@ -230,6 +242,55 @@ final class DashboardViewModel: ObservableObject {
             return MonthlyStat(title: monthFormatter.string(from: month).capitalized, monthStart: month, umsatz: umsatz, einnahmen: einnahmen)
         }
         .sorted { lhs, rhs in lhs.monthStart > rhs.monthStart }
+    }
+
+    func monthlyStat(for monthStart: Date) -> MonthlyStat {
+        let monthEntries = invoices.filter { startOfMonth(for: $0.issuedAt) == monthStart }
+        let umsatz = monthEntries.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.netAmount }
+        let outputVat = monthEntries.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.vatAmount }
+        let inputVat = monthEntries.filter { $0.type == .eingangsrechnung }.reduce(0) { $0 + $1.vatAmount }
+        let vatPayable = outputVat - inputVat
+        let fixkosten = fixkostenEntries.reduce(0) { $0 + $1.grossAmount }
+        let einnahmen = umsatz - max(vatPayable, 0) - kreditUndDarlehenMonatlich - fixkosten
+        return MonthlyStat(
+            title: monthTitle(for: monthStart),
+            monthStart: monthStart,
+            umsatz: umsatz,
+            einnahmen: einnahmen
+        )
+    }
+
+    func metricCards(for monthStart: Date?) -> [MetricCard] {
+        let monthFiltered: [InvoiceEntry]
+        if let monthStart {
+            monthFiltered = invoices.filter { startOfMonth(for: $0.issuedAt) == monthStart }
+        } else {
+            monthFiltered = invoices
+        }
+
+        let umsatzNetto = monthFiltered.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.netAmount }
+        let outputVat = monthFiltered.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.vatAmount }
+        let inputVat = monthFiltered.filter { $0.type == .eingangsrechnung }.reduce(0) { $0 + $1.vatAmount }
+        let vatPayable = outputVat - inputVat
+        let totalFixkostenBrutto = fixkostenEntries.reduce(0) { $0 + $1.grossAmount }
+        let einnahmenNettoNachAbzug = umsatzNetto - max(vatPayable, 0) - kreditUndDarlehenMonatlich - totalFixkostenBrutto
+        let offeneAusgang = monthFiltered.filter { !$0.isPaid && $0.type == .ausgangsrechnung }.count
+        let offeneEingang = monthFiltered.filter { !$0.isPaid && $0.type == .eingangsrechnung }.count
+
+        return cards.map { card in
+            switch card.type {
+            case .umsatz:
+                return MetricCard(id: card.id, type: .umsatz, value: formatCurrency(umsatzNetto), note: "Netto aus Ausgangsrechnungen")
+            case .umsatzsteuer:
+                return MetricCard(id: card.id, type: .umsatzsteuer, value: formatCurrency(vatPayable), note: "Ausgang \(formatCurrency(outputVat)) - Eingang \(formatCurrency(inputVat))")
+            case .rechnungenOffen:
+                return MetricCard(id: card.id, type: .rechnungenOffen, value: "\(offeneAusgang + offeneEingang)", note: "Ausgang: \(offeneAusgang) · Eingang: \(offeneEingang)")
+            case .einnahmen:
+                return MetricCard(id: card.id, type: .einnahmen, value: formatCurrency(einnahmenNettoNachAbzug), note: "nach Steuern, Krediten & Fixkosten")
+            case .fixkosten:
+                return MetricCard(id: card.id, type: .fixkosten, value: formatCurrency(totalFixkostenBrutto), note: "\(fixkostenEntries.count) Positionen")
+            }
+        }
     }
 
     func recalculateAllMetrics() {
