@@ -7,6 +7,9 @@ struct OffeneRechnungenSheet: View {
     @State private var editingInvoice: InvoiceEntry?
     @State private var invoiceToDelete: InvoiceEntry?
 
+    private let amountColumnWidth: CGFloat = 150
+    private let actionsColumnWidth: CGFloat = 320
+
     var body: some View {
         ModalSheetContainer(title: "Rechnungen offen", onClose: { dismiss() }) {
 
@@ -16,6 +19,7 @@ struct OffeneRechnungenSheet: View {
 
             Text("Ausgangsrechnungen")
                 .font(.headline)
+            invoiceListHeader
             List(viewModel.openInvoicesOutgoing) { invoice in
                 openInvoiceRow(invoice)
             }
@@ -25,6 +29,7 @@ struct OffeneRechnungenSheet: View {
 
             Text("Eingangsrechnungen")
                 .font(.headline)
+            invoiceListHeader
             List(viewModel.openInvoicesIncoming) { invoice in
                 openInvoiceRow(invoice)
             }
@@ -50,10 +55,31 @@ struct OffeneRechnungenSheet: View {
         }
     }
 
+    private var invoiceListHeader: some View {
+        HStack(spacing: 10) {
+            Text("Rechnung")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppPalette.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text("Betrag")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppPalette.textSecondary)
+                .frame(width: amountColumnWidth, alignment: .trailing)
+
+            Text("Aktionen")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppPalette.textSecondary)
+                .frame(width: actionsColumnWidth, alignment: .trailing)
+        }
+        .padding(.horizontal, 8)
+    }
+
     private func openInvoiceRow(_ invoice: InvoiceEntry) -> some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(invoice.title)
+                    .lineLimit(1)
                 Text("\(invoice.type.rawValue) · \(invoice.source.rawValue)")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -68,36 +94,40 @@ struct OffeneRechnungenSheet: View {
                         .foregroundStyle(viewModel.dueState(for: invoice) == "overdue" ? .red : .orange)
                 }
             }
-
-            Spacer(minLength: 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(viewModel.formatCurrency(invoice.grossAmount))
                 .fontWeight(.semibold)
+                .monospacedDigit()
+                .frame(width: amountColumnWidth, alignment: .trailing)
 
-            if invoice.pdfStoredFileName != nil {
-                Button("PDF") {
-                    viewModel.openStoredPDF(for: invoice)
+            HStack(spacing: 8) {
+                if invoice.pdfStoredFileName != nil {
+                    Button("PDF") {
+                        viewModel.openStoredPDF(for: invoice)
+                    }
+                    .appSecondaryButtonStyle()
+                }
+                if invoice.type == .ausgangsrechnung, !invoice.isPaid, invoice.customerPhone != nil {
+                    Button("WhatsApp") {
+                        viewModel.openWhatsAppReminder(for: invoice)
+                    }
+                    .appSecondaryButtonStyle()
+                }
+                Button("Als bezahlt") {
+                    viewModel.markInvoicePaid(id: invoice.id)
                 }
                 .appSecondaryButtonStyle()
-            }
-            if invoice.type == .ausgangsrechnung, !invoice.isPaid, invoice.customerPhone != nil {
-                Button("WhatsApp") {
-                    viewModel.openWhatsAppReminder(for: invoice)
-                }
-                .appSecondaryButtonStyle()
-            }
-            Button("Als bezahlt") {
-                viewModel.markInvoicePaid(id: invoice.id)
-            }
-            .appSecondaryButtonStyle()
 
-            Button {
-                invoiceToDelete = invoice
-            } label: {
-                Image(systemName: "xmark")
+                Button {
+                    invoiceToDelete = invoice
+                } label: {
+                    Image(systemName: "xmark")
+                }
+                .closeIconButtonStyle()
+                .help("Rechnung löschen")
             }
-            .closeIconButtonStyle()
-            .help("Rechnung löschen")
+            .frame(width: actionsColumnWidth, alignment: .trailing)
         }
         .textSelection(.enabled)
         .contentShape(Rectangle())
@@ -256,6 +286,30 @@ private struct EditInvoiceSheet: View {
         return trimmed.isEmpty ? nil : Int(trimmed)
     }
 
+    private var isTitleInvalid: Bool {
+        title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var isInvoiceNumberInvalid: Bool {
+        invoiceNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var isCustomerNameInvalid: Bool {
+        customerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var isNetAmountInvalid: Bool {
+        netAmount <= 0
+    }
+
+    private var isPaymentTermDaysInvalid: Bool {
+        type == .ausgangsrechnung && paymentTermDays == nil
+    }
+
+    private var isSaveDisabled: Bool {
+        isTitleInvalid || isInvoiceNumberInvalid || isCustomerNameInvalid || isNetAmountInvalid || isPaymentTermDaysInvalid
+    }
+
     var body: some View {
         ModalSheetContainer(title: "Rechnung bearbeiten", onClose: { dismiss() }) {
             VStack(alignment: .leading, spacing: 12) {
@@ -279,11 +333,13 @@ private struct EditInvoiceSheet: View {
                     LazyVGrid(columns: columns, spacing: 10) {
                         TextField("Bezeichnung", text: $title)
                             .modalEditorStyle()
+                            .appValidationHighlight(isTitleInvalid)
                         TextField("Bezug", text: $referenceNumber)
                             .modalEditorStyle()
 
                         TextField("Rechnungs-Nr.", text: $invoiceNumber)
                             .modalEditorStyle()
+                            .appValidationHighlight(isInvoiceNumberInvalid)
                         DatePicker("Rechnungsdatum", selection: $issuedAt, displayedComponents: .date)
 
                         TextField("Kunden-Nr.", text: $customerNumber)
@@ -302,6 +358,7 @@ private struct EditInvoiceSheet: View {
                     VStack(spacing: 10) {
                         TextField("Name", text: $customerName)
                             .modalEditorStyle()
+                            .appValidationHighlight(isCustomerNameInvalid)
                         TextField("Adresse", text: $customerAddress)
                             .modalEditorStyle()
                         TextField("Telefon", text: $customerPhone)
@@ -314,6 +371,7 @@ private struct EditInvoiceSheet: View {
                     VStack(spacing: 10) {
                         TextField("Netto", text: $netInput)
                             .modalEditorStyle()
+                            .appValidationHighlight(isNetAmountInvalid)
 
                         Picker("MwSt", selection: $vatRate) {
                             Text("19%").tag(0.19)
@@ -327,6 +385,7 @@ private struct EditInvoiceSheet: View {
 
                         TextField("Tage bis Fälligkeit", text: $paymentTermDaysInput)
                             .modalEditorStyle()
+                            .appValidationHighlight(isPaymentTermDaysInvalid)
                     }
                 }
                 .appFormGroupStyle()
@@ -357,7 +416,7 @@ private struct EditInvoiceSheet: View {
                         dismiss()
                     }
                     .appPrimaryButtonStyle()
-                    .disabled(netAmount <= 0)
+                    .disabled(isSaveDisabled)
                 }
             }
         }

@@ -105,6 +105,26 @@ struct AddInvoiceSheet: View {
         return normalized
     }
 
+    private var isTitleInvalid: Bool {
+        title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var isInvoiceNumberInvalid: Bool {
+        invoiceNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || hasDuplicateInvoiceNumber
+    }
+
+    private var isCustomerNameInvalid: Bool {
+        customerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var isNetAmountInvalid: Bool {
+        netAmount <= 0
+    }
+
+    private var isPaymentTermDaysInvalid: Bool {
+        type == .ausgangsrechnung && paymentTermDays == nil
+    }
+
     private var isSaveDisabled: Bool {
         !missingRequiredFields.isEmpty || hasDuplicateInvoiceNumber
     }
@@ -257,9 +277,9 @@ struct AddInvoiceSheet: View {
 
             GroupBox("Rechnungsdaten") {
                 LazyVGrid(columns: formColumns, spacing: 12) {
-                    TextField("Bezeichnung", text: $title).modalEditorStyle()
+                    TextField("Bezeichnung", text: $title).modalEditorStyle().appValidationHighlight(isTitleInvalid)
                     TextField("Bezug", text: $referenceNumber).modalEditorStyle()
-                    TextField("Rechnungs-Nr.", text: $invoiceNumber).modalEditorStyle()
+                    TextField("Rechnungs-Nr.", text: $invoiceNumber).modalEditorStyle().appValidationHighlight(isInvoiceNumberInvalid)
 
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Rechnungsdatum")
@@ -296,7 +316,7 @@ struct AddInvoiceSheet: View {
         GroupBox("Firma/Kunde") {
             VStack(alignment: .leading, spacing: 8) {
                 LazyVGrid(columns: formColumns, spacing: 12) {
-                    TextField("Name", text: $customerName).modalEditorStyle()
+                    TextField("Name", text: $customerName).modalEditorStyle().appValidationHighlight(isCustomerNameInvalid)
                     TextField("Straße und Hausnummer", text: $customerStreet).modalEditorStyle()
                     TextField("PLZ und Stadt", text: $customerPostalCity).modalEditorStyle()
                     TextField("Telefon / WhatsApp", text: $customerPhone).modalEditorStyle()
@@ -316,7 +336,7 @@ struct AddInvoiceSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             GroupBox("Beträge") {
                 VStack(spacing: 8) {
-                    TextField("Zwischensumme (netto)", text: $netInput).modalEditorStyle()
+                    TextField("Zwischensumme (netto)", text: $netInput).modalEditorStyle().appValidationHighlight(isNetAmountInvalid)
                     Picker("Ust.", selection: $vatRate) {
                         Text("19%").tag(0.19)
                         Text("7%").tag(0.07)
@@ -363,7 +383,7 @@ struct AddInvoiceSheet: View {
             GroupBox("Zahlung") {
                 VStack(spacing: 8) {
                     TextField("Zahlungsbedingungen", text: $paymentTermsText).modalEditorStyle()
-                    TextField("Tage bis Fälligkeit (z.B. 14 oder 21)", text: $paymentTermDaysInput).modalEditorStyle()
+                    TextField("Tage bis Fälligkeit (z.B. 14 oder 21)", text: $paymentTermDaysInput).modalEditorStyle().appValidationHighlight(isPaymentTermDaysInvalid)
                 }
             }
             .appFormGroupStyle()

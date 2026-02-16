@@ -251,6 +251,8 @@ final class DashboardViewModel: ObservableObject {
     private var cachedOpenInvoicesIncoming: [InvoiceEntry] = []
     private var cachedPaidOutgoingInvoices: [InvoiceEntry] = []
 
+    private let autoBackupDefaultsKey = "BusinessAccountingApp.lastAutoBackupAt"
+
     private let currencyFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
@@ -270,6 +272,7 @@ final class DashboardViewModel: ObservableObject {
     init() {
         loadPersistedData()
         recalculateAllMetrics()
+        performAutomaticBackupIfNeeded()
     }
 
     func addInvoice(_ entry: InvoiceEntry) {
@@ -484,6 +487,7 @@ final class DashboardViewModel: ObservableObject {
 
         cachedMetricCardsAll = cards
         persistData()
+        performAutomaticBackupIfNeeded()
     }
 
     private func refreshDerivedData() {
@@ -551,6 +555,71 @@ final class DashboardViewModel: ObservableObject {
         let offeneAusgang = entries.filter { !$0.isPaid && $0.type == .ausgangsrechnung }.count
         let offeneEingang = entries.filter { !$0.isPaid && $0.type == .eingangsrechnung }.count
         return (umsatzNetto, outputVat, inputVat, vatPayable, totalFixkostenBrutto, einnahmenNettoNachAbzug, offeneAusgang, offeneEingang)
+    }
+
+    private var autoBackupsFolderURL: URL {
+        let folderURL = persistenceURL.deletingLastPathComponent().appendingPathComponent("auto-backups", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: folderURL.path) {
+            try? FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
+        }
+        return folderURL
+    }
+
+    private func makeBackupPayload() -> BackupPayload {
+        let persistedData = PersistedData(
+            invoices: invoices,
+            fixkostenEntries: fixkostenEntries,
+            kreditUndDarlehenMonatlich: kreditUndDarlehenMonatlich
+        )
+
+        let storedFileNames = Set(invoices.compactMap { $0.pdfStoredFileName })
+        var storedPDFs: [String: String] = [:]
+
+        for fileName in storedFileNames {
+            let fileURL = storedPDFsFolderURL.appendingPathComponent(fileName)
+            guard let data = try? Data(contentsOf: fileURL) else { continue }
+            storedPDFs[fileName] = data.base64EncodedString()
+        }
+
+        return BackupPayload(exportedAt: Date(), data: persistedData, storedPDFs: storedPDFs)
+    }
+
+    private func performAutomaticBackupIfNeeded() {
+        let now = Date()
+        let defaults = UserDefaults.standard
+        if let lastBackupAt = defaults.object(forKey: autoBackupDefaultsKey) as? Date,
+           Calendar.current.isDate(lastBackupAt, inSameDayAs: now) {
+            return
+        }
+
+        guard writeAutomaticBackupSnapshot() else { return }
+        defaults.set(now, forKey: autoBackupDefaultsKey)
+    }
+
+    @discardableResult
+    private func writeAutomaticBackupSnapshot() -> Bool {
+        let payload = makeBackupPayload()
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+
+        guard let encoded = try? encoder.encode(payload) else { return false }
+
+        let fileNameFormatter = DateFormatter()
+        fileNameFormatter.locale = Locale(identifier: "en_US_POSIX")
+        fileNameFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let timestamp = fileNameFormatter.string(from: Date())
+
+        let latestURL = autoBackupsFolderURL.appendingPathComponent("latest.babackup")
+        let datedURL = autoBackupsFolderURL.appendingPathComponent("auto-\(timestamp).babackup")
+
+        do {
+            try encoded.write(to: latestURL, options: .atomic)
+            try encoded.write(to: datedURL, options: .atomic)
+            return true
+        } catch {
+            return false
+        }
     }
 
     private var persistenceURL: URL {
@@ -622,22 +691,7 @@ final class DashboardViewModel: ObservableObject {
 
         guard panel.runModal() == .OK, let destinationURL = panel.url else { return false }
 
-        let persistedData = PersistedData(
-            invoices: invoices,
-            fixkostenEntries: fixkostenEntries,
-            kreditUndDarlehenMonatlich: kreditUndDarlehenMonatlich
-        )
-
-        let storedFileNames = Set(invoices.compactMap { $0.pdfStoredFileName })
-        var storedPDFs: [String: String] = [:]
-
-        for fileName in storedFileNames {
-            let fileURL = storedPDFsFolderURL.appendingPathComponent(fileName)
-            guard let data = try? Data(contentsOf: fileURL) else { continue }
-            storedPDFs[fileName] = data.base64EncodedString()
-        }
-
-        let payload = BackupPayload(exportedAt: Date(), data: persistedData, storedPDFs: storedPDFs)
+        let payload = makeBackupPayload()
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601

@@ -24,6 +24,8 @@ enum AppPalette {
 
     static let cardNote = Color(red: 0.36, green: 0.37, blue: 0.41)
     static let darkCardBorder = Color(red: 0.24, green: 0.25, blue: 0.28)
+    static let validationBorder = Color.red.opacity(0.75)
+    static let validationBackground = Color.red.opacity(0.06)
 }
 
 struct ModalSheetContainer<Content: View>: View {
@@ -136,6 +138,18 @@ extension View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(AppPalette.borderStrong, lineWidth: 1)
             )
+    }
+
+
+    func appValidationHighlight(_ isInvalid: Bool) -> some View {
+        overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(isInvalid ? AppPalette.validationBorder : .clear, lineWidth: isInvalid ? 1.5 : 0)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(isInvalid ? AppPalette.validationBackground : .clear)
+        )
     }
 
     func appSegmentedStyle() -> some View {
