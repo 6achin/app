@@ -118,14 +118,14 @@ struct AddInvoiceSheet: View {
                             Text(value.rawValue).tag(value)
                         }
                     }
-                    .pickerStyle(.segmented)
+                    .appSegmentedStyle()
 
                     Picker("Typ", selection: $type) {
                         ForEach(InvoiceType.allCases) { value in
                             Text(value.rawValue).tag(value)
                         }
                     }
-                    .pickerStyle(.segmented)
+                    .appSegmentedStyle()
                 }
 
                 Picker("Schritt", selection: $step) {
@@ -133,7 +133,7 @@ struct AddInvoiceSheet: View {
                         Text(value.rawValue).tag(value)
                     }
                 }
-                .pickerStyle(.segmented)
+                .appSegmentedStyle()
 
                 Divider()
 
@@ -157,7 +157,7 @@ struct AddInvoiceSheet: View {
                         if let due = computedDueDateText {
                             Label("Fällig am: \(due)", systemImage: "calendar.badge.clock")
                                 .font(.footnote)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AppPalette.textSecondary)
                         }
 
                         if !missingRequiredFields.isEmpty {
@@ -216,7 +216,7 @@ struct AddInvoiceSheet: View {
                 GroupBox("PDF Import") {
                     HStack {
                         Text(pickedPDF.isEmpty ? "Keine PDF ausgewählt" : pickedPDF)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppPalette.textSecondary)
                             .lineLimit(1)
                         Spacer()
                         Button("PDF wählen") { importFromPDF() }
@@ -226,7 +226,7 @@ struct AddInvoiceSheet: View {
                     if parsedLineItemsCount > 0 {
                         Text("Positionen erkannt: \(parsedLineItemsCount)")
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppPalette.textSecondary)
                     }
                 }
             }
@@ -267,7 +267,7 @@ struct AddInvoiceSheet: View {
                 if let normalizedPhoneHint {
                     Text("WhatsApp-Format: \(normalizedPhoneHint)")
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppPalette.textSecondary)
                 }
             }
         }
@@ -283,31 +283,31 @@ struct AddInvoiceSheet: View {
                         Text("7%").tag(0.07)
                         Text("0%").tag(0.0)
                     }
-                    .pickerStyle(.segmented)
+                    .appSegmentedStyle()
 
                     HStack(spacing: 10) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Steuer")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AppPalette.textSecondary)
                             Text("€ \(vatCalculatedText)")
                                 .font(.headline.weight(.semibold))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(10)
-                        .background(Color.black.opacity(0.03))
+                        .background(AppPalette.inputSurface)
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Brutto")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AppPalette.textSecondary)
                             Text("€ \(grossCalculatedText)")
                                 .font(.headline.weight(.semibold))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(10)
-                        .background(Color.black.opacity(0.03))
+                        .background(AppPalette.inputSurface)
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
 

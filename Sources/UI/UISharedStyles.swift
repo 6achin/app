@@ -15,8 +15,9 @@ enum AppPalette {
     static let textSecondary = Color(red: 0.24, green: 0.25, blue: 0.29)
     static let textMuted = Color(red: 0.18, green: 0.22, blue: 0.28)
 
-    static let primaryAction = Color(red: 0.17, green: 0.30, blue: 0.52)
-    static let secondaryAction = Color(red: 0.74, green: 0.74, blue: 0.78)
+    static let primaryAction = Color(red: 0.82, green: 0.83, blue: 0.86)
+    static let secondaryAction = Color(red: 0.88, green: 0.88, blue: 0.91)
+    static let segmentedActive = Color(red: 0.58, green: 0.58, blue: 0.62)
     static let positive = Color(red: 0.70, green: 0.93, blue: 0.76)
     static let closeBackground = Color(red: 0.86, green: 0.86, blue: 0.89)
     static let closeBorder = Color(red: 0.70, green: 0.70, blue: 0.73)
@@ -78,16 +79,35 @@ extension View {
     }
 
     func appPrimaryButtonStyle() -> some View {
-        buttonStyle(.borderedProminent)
-            .controlSize(.regular)
-            .tint(AppPalette.primaryAction)
+        buttonStyle(.plain)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(AppPalette.textPrimary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(AppPalette.primaryAction)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(AppPalette.borderStrong, lineWidth: 1)
+            )
     }
 
     func appSecondaryButtonStyle() -> some View {
-        buttonStyle(.bordered)
-            .controlSize(.regular)
+        buttonStyle(.plain)
+            .font(.system(size: 14, weight: .medium))
             .foregroundStyle(AppPalette.textMuted)
-            .tint(AppPalette.secondaryAction)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(AppPalette.secondaryAction)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(AppPalette.border, lineWidth: 1)
+            )
     }
 
     func closeIconButtonStyle() -> some View {
@@ -100,6 +120,7 @@ extension View {
     func modalEditorStyle() -> some View {
         textFieldStyle(.plain)
             .font(.system(size: 16, weight: .medium))
+            .foregroundStyle(AppPalette.textPrimary)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .background(
@@ -110,6 +131,12 @@ extension View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(AppPalette.borderStrong, lineWidth: 1)
             )
+    }
+
+    func appSegmentedStyle() -> some View {
+        pickerStyle(.segmented)
+            .tint(AppPalette.segmentedActive)
+            .foregroundStyle(AppPalette.textPrimary)
     }
 
     func appListStyle() -> some View {
