@@ -263,35 +263,46 @@ final class DashboardViewModel: ObservableObject {
         }
 
         let storedFileName = storePDFLocally(from: url)
+        return parseInvoiceText(text, defaultTitle: url.deletingPathExtension().lastPathComponent, storedPDFFileName: storedFileName)
+    }
+    #endif
 
-        var parsed = ParsedInvoiceData(title: url.deletingPathExtension().lastPathComponent)
-        parsed.storedPDFFileName = storedFileName
+    func importInvoiceFromClipboardText(_ text: String) -> ParsedInvoiceData? {
+        parseInvoiceText(text, defaultTitle: "Zwischenablage-Import", storedPDFFileName: nil)
+    }
+
+    private func parseInvoiceText(_ text: String, defaultTitle: String, storedPDFFileName: String?) -> ParsedInvoiceData? {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else { return nil }
+
+        var parsed = ParsedInvoiceData(title: defaultTitle)
+        parsed.storedPDFFileName = storedPDFFileName
         parsed.referenceNumber = firstNonNil([
-            firstMatch(in: text, pattern: #"Bezug:\s*([A-Z0-9\-]+)"#),
-            firstMatch(in: text, pattern: #"\b(LS-[0-9]{4}-[0-9]{2}-[0-9]{3,5})\b"#),
-            adjacentValue(in: text, labelPattern: #"Bezug"#, valuePattern: #"[A-Z0-9\-]{4,}"#)
+            firstMatch(in: trimmedText, pattern: #"Bezug:\s*([A-Z0-9\-]+)"#),
+            firstMatch(in: trimmedText, pattern: #"\b(LS-[0-9]{4}-[0-9]{2}-[0-9]{3,5})\b"#),
+            adjacentValue(in: trimmedText, labelPattern: #"Bezug"#, valuePattern: #"[A-Z0-9\-]{4,}"#)
         ])
 
         parsed.invoiceNumber = firstNonNil([
-            firstMatch(in: text, pattern: #"Rechnungs-Nr\.\s*:\s*([A-Z0-9\-]+)"#),
-            firstMatch(in: text, pattern: #"\b(RE-[0-9]{4}-[0-9]{2}-[0-9]{3,5})\b"#),
-            adjacentValue(in: text, labelPattern: #"Rechnungs-Nr\.?"#, valuePattern: #"[A-Z]{1,4}-[0-9]{4}-[0-9]{2}-[0-9]{3,5}"#)
+            firstMatch(in: trimmedText, pattern: #"Rechnungs-Nr\.\s*:\s*([A-Z0-9\-]+)"#),
+            firstMatch(in: trimmedText, pattern: #"\b(RE-[0-9]{4}-[0-9]{2}-[0-9]{3,5})\b"#),
+            adjacentValue(in: trimmedText, labelPattern: #"Rechnungs-Nr\.?"#, valuePattern: #"[A-Z]{1,4}-[0-9]{4}-[0-9]{2}-[0-9]{3,5}"#)
         ])
 
         parsed.customerNumber = firstNonNil([
-            firstMatch(in: text, pattern: #"Kunden-Nr\.\s*:\s*([A-Z0-9\-]+)"#),
-            firstMatch(in: text, pattern: #"\b(K[0-9]{2,6})\b"#),
-            adjacentValue(in: text, labelPattern: #"Kunden-Nr\.?"#, valuePattern: #"(?=.*[0-9])[A-Z0-9\-]{2,}"#)
+            firstMatch(in: trimmedText, pattern: #"Kunden-Nr\.\s*:\s*([A-Z0-9\-]+)"#),
+            firstMatch(in: trimmedText, pattern: #"\b(K[0-9]{2,6})\b"#),
+            adjacentValue(in: trimmedText, labelPattern: #"Kunden-Nr\.?"#, valuePattern: #"(?=.*[0-9])[A-Z0-9\-]{2,}"#)
         ])
 
         parsed.ustIdNr = firstNonNil([
-            firstMatch(in: text, pattern: #"USt-IdNr\.\s*:\s*([^\n\r]+)"#)?.trimmingCharacters(in: .whitespaces),
-            adjacentValue(in: text, labelPattern: #"USt-IdNr\.?"#, valuePattern: #"[A-Z]{2}[A-Z0-9\-]{6,}"#)
+            firstMatch(in: trimmedText, pattern: #"USt-IdNr\.\s*:\s*([^\n\r]+)"#)?.trimmingCharacters(in: .whitespaces),
+            adjacentValue(in: trimmedText, labelPattern: #"USt-IdNr\.?"#, valuePattern: #"[A-Z]{2}[A-Z0-9\-]{6,}"#)
         ])
 
         parsed.taxNumber = firstNonNil([
-            firstMatch(in: text, pattern: #"Steuernummer:\s*([0-9/\-]+)"#),
-            adjacentValue(in: text, labelPattern: #"Steuernummer"#, valuePattern: #"[0-9/\-]{6,}"#)
+            firstMatch(in: trimmedText, pattern: #"Steuernummer:\s*([0-9/\-]+)"#),
+            adjacentValue(in: trimmedText, labelPattern: #"Steuernummer"#, valuePattern: #"[0-9/\-]{6,}"#)
         ])
 
         if let inv = parsed.invoiceNumber {
@@ -300,34 +311,34 @@ final class DashboardViewModel: ObservableObject {
             parsed.title = ref
         }
 
-        if let dateText = firstMatch(in: text, pattern: #"Rechnungsdatum\s*:?\s*([0-9]{2}\.[0-9]{2}\.[0-9]{2,4})"#) {
+        if let dateText = firstMatch(in: trimmedText, pattern: #"Rechnungsdatum\s*:?\s*([0-9]{2}\.[0-9]{2}\.[0-9]{2,4})"#) {
             parsed.issuedAt = parseDate(dateText)
         }
 
-        if let vatPercentText = firstMatch(in: text, pattern: #"(?:Ust\.|MwSt\.)\s*([0-9]{1,2})\s*%"#), let vatPercent = Double(vatPercentText) {
+        if let vatPercentText = firstMatch(in: trimmedText, pattern: #"(?:Ust\.|MwSt\.)\s*([0-9]{1,2})\s*%"#), let vatPercent = Double(vatPercentText) {
             parsed.vatRate = vatPercent / 100
         }
 
         if let netText = firstNonNil([
-            firstMatch(in: text, pattern: #"(?:(?:Zwischensumme|Zwieschensumme)\s*\(netto\)|Summe\s*netto|Netto\s*gesamt)\s*([0-9\.,]+)"#),
-            adjacentValue(in: text, labelPattern: #"(?:Zwischensumme|Zwieschensumme)\s*\(netto\)|Summe\s*netto|Netto\s*gesamt"#, valuePattern: #"[0-9\.]+,[0-9]{2}"#)
+            firstMatch(in: trimmedText, pattern: #"(?:(?:Zwischensumme|Zwieschensumme)\s*\(netto\)|Summe\s*netto|Netto\s*gesamt)\s*([0-9\.,]+)"#),
+            adjacentValue(in: trimmedText, labelPattern: #"(?:Zwischensumme|Zwieschensumme)\s*\(netto\)|Summe\s*netto|Netto\s*gesamt"#, valuePattern: #"[0-9\.]+,[0-9]{2}"#)
         ]) {
             parsed.netAmount = parseGermanNumber(netText)
         }
 
         if let grossText = firstNonNil([
-            firstMatch(in: text, pattern: #"(?:Rechnungsbetrag|Gesamtbetrag|Brutto\s*gesamt)\s*([0-9\.,]+)"#),
-            adjacentValue(in: text, labelPattern: #"Rechnungsbetrag|Gesamtbetrag|Brutto\s*gesamt"#, valuePattern: #"[0-9\.]+,[0-9]{2}"#)
+            firstMatch(in: trimmedText, pattern: #"(?:Rechnungsbetrag|Gesamtbetrag|Brutto\s*gesamt)\s*([0-9\.,]+)"#),
+            adjacentValue(in: trimmedText, labelPattern: #"Rechnungsbetrag|Gesamtbetrag|Brutto\s*gesamt"#, valuePattern: #"[0-9\.]+,[0-9]{2}"#)
         ]) {
             parsed.grossAmount = parseGermanNumber(grossText)
         }
 
-        parsed.lineItems = parseLineItems(in: text)
+        parsed.lineItems = parseLineItems(in: trimmedText)
         if parsed.netAmount == nil {
             parsed.netAmount = parsed.lineItems.compactMap(\.totalNet).reduce(0, +)
         }
 
-        let lines = text
+        let lines = trimmedText
             .components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
@@ -344,7 +355,7 @@ final class DashboardViewModel: ObservableObject {
             parsed.customerPhone = lines[telIndex].replacingOccurrences(of: "Tel.:", with: "").trimmingCharacters(in: .whitespaces)
         }
 
-        parsed.paymentTermsText = firstMatch(in: text, pattern: #"Zahlungsbedingungen:\s*([^\n\r]+)"#)
+        parsed.paymentTermsText = firstMatch(in: trimmedText, pattern: #"Zahlungsbedingungen:\s*([^\n\r]+)"#)
         if let terms = parsed.paymentTermsText {
             parsed.paymentTermDays = extractPaymentDays(from: terms)
         }
@@ -360,7 +371,6 @@ final class DashboardViewModel: ObservableObject {
 
         return parsed
     }
-    #endif
 
     func markInvoicePaid(id: UUID) {
         guard let index = invoices.firstIndex(where: { $0.id == id }) else { return }

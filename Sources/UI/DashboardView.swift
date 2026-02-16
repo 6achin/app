@@ -407,6 +407,7 @@ private struct AddInvoiceSheet: View {
                             .lineLimit(1)
                         Spacer()
                         Button("PDF wählen") { importFromPDF() }
+                        Button("Aus Zwischenablage") { importFromClipboard() }
                     }
 
                     if parsedLineItemsCount > 0 {
@@ -414,6 +415,13 @@ private struct AddInvoiceSheet: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
+                }
+            }
+
+            if source == .manual {
+                HStack {
+                    Spacer()
+                    Button("Aus Zwischenablage einfügen") { importFromClipboard() }
                 }
             }
 
@@ -512,6 +520,21 @@ private struct AddInvoiceSheet: View {
 
         #if canImport(PDFKit)
         guard let parsed = viewModel.importPDFInvoice(from: url) else { return }
+        source = .pdf
+        applyParsedInvoice(parsed)
+        #endif
+    }
+
+    private func importFromClipboard() {
+        #if canImport(AppKit)
+        guard let clipboardText = NSPasteboard.general.string(forType: .string),
+              let parsed = viewModel.importInvoiceFromClipboardText(clipboardText) else { return }
+        source = .manual
+        applyParsedInvoice(parsed)
+        #endif
+    }
+
+    private func applyParsedInvoice(_ parsed: DashboardViewModel.ParsedInvoiceData) {
         type = .ausgangsrechnung
         title = parsed.title
         importedPDFFileName = parsed.storedPDFFileName
@@ -540,7 +563,6 @@ private struct AddInvoiceSheet: View {
         paymentTermDaysInput = parsed.paymentTermDays.map(String.init) ?? paymentTermDaysInput
         paymentTermsText = parsed.paymentTermsText ?? paymentTermsText
         parsedLineItemsCount = parsed.lineItems.count
-        #endif
     }
 }
 
@@ -605,6 +627,7 @@ private struct OffeneRechnungenSheet: View {
             }
             .buttonStyle(.bordered)
         }
+        .textSelection(.enabled)
     }
 }
 
