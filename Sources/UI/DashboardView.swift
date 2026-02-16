@@ -49,7 +49,7 @@ struct DashboardView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color.white, Color(red: 0.96, green: 0.97, blue: 0.99)],
+                colors: [Color(red: 0.94, green: 0.95, blue: 0.97), Color(red: 0.90, green: 0.92, blue: 0.95)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -59,10 +59,10 @@ struct DashboardView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Dashboard")
                             .font(.system(size: 34, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color.black.opacity(0.86))
+                            .foregroundStyle(Color(red: 0.12, green: 0.14, blue: 0.18))
                         Text("Willkommen zurück, bachin")
                             .font(.title3)
-                            .foregroundStyle(Color.black.opacity(0.62))
+                            .foregroundStyle(Color(red: 0.28, green: 0.31, blue: 0.36))
                     }
 
                     Spacer()
@@ -210,27 +210,27 @@ private struct KPIButtonCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(card.title)
                     .font(.headline.weight(.semibold))
-                    .foregroundStyle(Color.black.opacity(0.72))
+                    .foregroundStyle(Color(red: 0.23, green: 0.26, blue: 0.31))
                 Text(card.value)
                     .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color.black.opacity(0.9))
+                    .foregroundStyle(Color(red: 0.08, green: 0.10, blue: 0.14))
                     .minimumScaleFactor(0.85)
                 Text(card.note)
                     .font(.callout)
-                    .foregroundStyle(Color.black.opacity(0.62))
+                    .foregroundStyle(Color(red: 0.33, green: 0.36, blue: 0.42))
             }
             .frame(maxWidth: .infinity, minHeight: 108, alignment: .leading)
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(red: 0.975, green: 0.978, blue: 0.986))
+                    .fill(Color.white)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.black.opacity(0.18), lineWidth: 1)
+                    .stroke(Color(red: 0.76, green: 0.79, blue: 0.84), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 4)
+            .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
         }
         .buttonStyle(.plain)
     }
@@ -1088,14 +1088,14 @@ private struct ModalSheetContainer<Content: View>: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(red: 0.975, green: 0.978, blue: 0.986))
+                .fill(Color.white)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.black.opacity(0.18), lineWidth: 1)
+                .stroke(Color(red: 0.77, green: 0.80, blue: 0.85), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .shadow(color: .black.opacity(0.04), radius: 10, x: 0, y: 4)
+        .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 3)
     }
 }
 
@@ -1103,19 +1103,21 @@ private extension View {
     func appPrimaryButtonStyle() -> some View {
         buttonStyle(.borderedProminent)
             .controlSize(.regular)
-            .tint(Color(red: 0.24, green: 0.33, blue: 0.47))
+            .tint(Color(red: 0.17, green: 0.30, blue: 0.52))
     }
 
     func appSecondaryButtonStyle() -> some View {
         buttonStyle(.bordered)
             .controlSize(.regular)
-            .foregroundStyle(Color.black.opacity(0.8))
+            .foregroundStyle(Color(red: 0.18, green: 0.22, blue: 0.28))
+            .tint(Color(red: 0.62, green: 0.66, blue: 0.73))
     }
 
     func closeIconButtonStyle() -> some View {
         buttonStyle(.plain)
             .padding(8)
-            .background(Color.black.opacity(0.06), in: Circle())
+            .background(Color(red: 0.92, green: 0.94, blue: 0.97), in: Circle())
+            .overlay(Circle().stroke(Color(red: 0.72, green: 0.76, blue: 0.82), lineWidth: 1))
     }
 
     func modalEditorStyle() -> some View {
@@ -1125,17 +1127,15 @@ private extension View {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(red: 0.985, green: 0.988, blue: 0.995))
+                    .fill(Color.white)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.black.opacity(0.16), lineWidth: 1)
+                    .stroke(Color(red: 0.71, green: 0.75, blue: 0.82), lineWidth: 1)
             )
     }
 
     func appListStyle() -> some View {
-        scrollContentBackground(.hidden)
-            .background(Color.clear)
-            .listStyle(.inset)
+        listStyle(.inset)
     }
 }
