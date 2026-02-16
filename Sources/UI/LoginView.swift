@@ -19,14 +19,14 @@ struct LoginView: View {
             )
             .ignoresSafeArea()
 
-            VStack(spacing: 22) {
+            VStack(spacing: 20) {
                 Image(systemName: "building.2.crop.circle.fill")
                     .font(.system(size: 48))
                     .foregroundStyle(.primary)
 
                 VStack(spacing: 4) {
                     Text("Business Buchhaltung")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
 
                     Text("Sicher anmelden")
                         .font(.title3)
@@ -61,8 +61,8 @@ struct LoginView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            .padding(32)
-            .frame(width: 500)
+            .padding(28)
+            .frame(width: 460)
             .background(.ultraThinMaterial)
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -80,9 +80,9 @@ struct LoginView: View {
 private extension View {
     func loginInputStyle() -> some View {
         textFieldStyle(.plain)
-            .font(.system(size: 17, weight: .medium))
+            .font(.system(size: 16, weight: .medium))
             .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color(nsColor: .textBackgroundColor).opacity(0.75))

@@ -28,7 +28,7 @@ struct DashboardView: View {
     @State private var selectedMonthStart: Date?
     @State private var showClearDataAlert = false
 
-    private let cardColumns = [GridItem(.adaptive(minimum: 270), spacing: 14)]
+    private let cardColumns = [GridItem(.adaptive(minimum: 250), spacing: 14)]
 
     private var availableMonths: [Date] {
         viewModel.availableMonths()
@@ -57,7 +57,7 @@ struct DashboardView: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Dashboard")
-                            .font(.system(size: 38, weight: .bold, design: .rounded))
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
                         Text("Willkommen zurück, bachin")
                             .font(.title3)
                             .foregroundStyle(.secondary)
@@ -101,8 +101,8 @@ struct DashboardView: View {
 
                 Spacer()
             }
-            .padding(28)
-            .frame(maxWidth: 1380, maxHeight: .infinity, alignment: .topLeading)
+            .padding(24)
+            .frame(maxWidth: 1280, maxHeight: .infinity, alignment: .topLeading)
         }
         .sheet(item: $selectedSheet) { sheet in
             switch sheet {
@@ -151,7 +151,7 @@ struct DashboardView: View {
             .disabled(!canSelectPreviousMonth)
 
             Text(viewModel.monthTitle(for: activeMonthStart))
-                .font(.title3.weight(.semibold))
+                .font(.headline.weight(.semibold))
                 .frame(minWidth: 220)
 
             Button {
@@ -208,13 +208,13 @@ private struct KPIButtonCard: View {
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Text(card.value)
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
                     .minimumScaleFactor(0.85)
                 Text(card.note)
-                    .font(.body)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: .infinity, minHeight: 122, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 108, alignment: .leading)
             .padding(16)
             .background(.regularMaterial)
             .overlay(
@@ -392,9 +392,9 @@ private struct AddInvoiceSheet: View {
                     .disabled((netAmount <= 0 && grossAmountInput <= 0) || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
-            .font(.system(size: 16, weight: .regular))
+            .font(.system(size: 15, weight: .regular))
         }
-        .frame(width: 860, height: 780)
+        .frame(width: 800, height: 720)
     }
 
     private var basisStep: some View {
@@ -990,9 +990,9 @@ private struct ModalSheetContainer<Content: View>: View {
 private extension View {
     func modalEditorStyle() -> some View {
         textFieldStyle(.plain)
-            .font(.system(size: 17, weight: .medium))
+            .font(.system(size: 16, weight: .medium))
             .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color(nsColor: .textBackgroundColor).opacity(0.7))
