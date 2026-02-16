@@ -209,23 +209,24 @@ private struct KPIButtonCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(card.title)
                     .font(.headline.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.black.opacity(0.72))
                 Text(card.value)
                     .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.black.opacity(0.9))
                     .minimumScaleFactor(0.85)
                 Text(card.note)
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.black.opacity(0.62))
             }
             .frame(maxWidth: .infinity, minHeight: 108, alignment: .leading)
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white)
+                    .fill(Color(red: 0.988, green: 0.99, blue: 0.997))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                    .stroke(Color.black.opacity(0.12), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 4)
@@ -1080,11 +1081,11 @@ private struct ModalSheetContainer<Content: View>: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.white)
+                .fill(Color(red: 0.988, green: 0.99, blue: 0.997))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                .stroke(Color.black.opacity(0.12), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .shadow(color: .black.opacity(0.04), radius: 10, x: 0, y: 4)
@@ -1116,11 +1117,11 @@ private extension View {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.white)
+                    .fill(Color(red: 0.985, green: 0.988, blue: 0.995))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                    .stroke(Color.black.opacity(0.16), lineWidth: 1)
             )
     }
 }
