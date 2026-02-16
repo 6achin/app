@@ -15,18 +15,23 @@ struct LoginView: View {
             Color.clear
                 .ignoresSafeArea()
 
-            VStack(spacing: 20) {
+            VStack(spacing: 18) {
                 Image(systemName: "building.2.crop.circle.fill")
-                    .font(.system(size: 48))
+                    .font(.system(size: 44))
                     .foregroundStyle(AppPalette.primaryAction)
+                    .padding(10)
+                    .background(
+                        Circle()
+                            .fill(AppPalette.inputSurface)
+                    )
 
-                VStack(spacing: 4) {
+                VStack(spacing: 6) {
                     Text("Business Buchhaltung")
                         .font(.system(size: 30, weight: .bold, design: .rounded))
                         .foregroundStyle(AppPalette.textPrimary)
 
-                    Text("Sicher anmelden")
-                        .font(.title3)
+                    Text("Bitte melden Sie sich an")
+                        .font(.subheadline)
                         .foregroundStyle(AppPalette.textSecondary)
                 }
 
@@ -39,6 +44,7 @@ struct LoginView: View {
                         TextField("Benutzername", text: $viewModel.username)
                             .modalEditorStyle()
                             .focused($focusedField, equals: .username)
+                            .textInputAutocapitalization(.never)
                     }
 
                     VStack(alignment: .leading, spacing: 6) {
@@ -57,6 +63,7 @@ struct LoginView: View {
                     Text(errorMessage)
                         .foregroundStyle(.red)
                         .font(.footnote)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 Button("Einloggen", action: viewModel.login)
@@ -66,12 +73,12 @@ struct LoginView: View {
                     .controlSize(.large)
                     .frame(maxWidth: .infinity)
 
-                Text("Admin: bachin · Passwort: 12345")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                Text("Anmeldedaten sind aus Sicherheitsgründen nicht sichtbar.")
+                    .font(.caption)
+                    .foregroundStyle(AppPalette.textSecondary)
             }
-            .padding(28)
-            .frame(width: 460)
+            .padding(30)
+            .frame(width: 500)
             .appSurface(cornerRadius: 24)
             .onAppear {
                 focusedField = .username
