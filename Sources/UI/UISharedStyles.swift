@@ -43,8 +43,7 @@ struct ModalSheetContainer<Content: View>: View {
                         Image(systemName: "xmark")
                     }
                     .closeIconButtonStyle()
-                    .keyboardShortcut(.cancelAction)
-                    .help("Schließen (Esc)")
+                    .help("Schließen")
                 }
             }
 
@@ -118,8 +117,7 @@ extension View {
 
     func closeIconButtonStyle() -> some View {
         buttonStyle(.plain)
-            .frame(width: 40, height: 40)
-            .contentShape(Circle())
+            .padding(8)
             .background(AppPalette.closeBackground, in: Circle())
             .overlay(Circle().stroke(AppPalette.closeBorder, lineWidth: 1))
     }

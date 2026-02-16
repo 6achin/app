@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(UniformTypeIdentifiers)
+import UniformTypeIdentifiers
+#endif
 #if canImport(PDFKit)
 import PDFKit
 #endif
@@ -602,7 +605,14 @@ final class DashboardViewModel: ObservableObject {
     @discardableResult
     func exportBackup() -> Bool {
         let panel = NSSavePanel()
-        panel.allowedFileTypes = ["babackup", "json"]
+        if #available(macOS 12.0, *) {
+            panel.allowedContentTypes = [
+                UTType(filenameExtension: "babackup") ?? .json,
+                .json
+            ]
+        } else {
+            panel.allowedFileTypes = ["babackup", "json"]
+        }
         panel.nameFieldStringValue = "business-accounting-backup.babackup"
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
@@ -641,7 +651,14 @@ final class DashboardViewModel: ObservableObject {
     @discardableResult
     func importBackup() -> Bool {
         let panel = NSOpenPanel()
-        panel.allowedFileTypes = ["babackup", "json"]
+        if #available(macOS 12.0, *) {
+            panel.allowedContentTypes = [
+                UTType(filenameExtension: "babackup") ?? .json,
+                .json
+            ]
+        } else {
+            panel.allowedFileTypes = ["babackup", "json"]
+        }
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
@@ -674,7 +691,6 @@ final class DashboardViewModel: ObservableObject {
     func importBackup() -> Bool { false }
     #endif
 
-    #if canImport(AppKit)
     func openStoredPDF(for invoice: InvoiceEntry) {
         guard let url = storedPDFURL(for: invoice), FileManager.default.fileExists(atPath: url.path) else { return }
         NSWorkspace.shared.open(url)

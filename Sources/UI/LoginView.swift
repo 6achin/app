@@ -44,7 +44,6 @@ struct LoginView: View {
                         TextField("Benutzername", text: $viewModel.username)
                             .modalEditorStyle()
                             .focused($focusedField, equals: .username)
-                            .textInputAutocapitalization(.never)
                     }
 
                     VStack(alignment: .leading, spacing: 6) {
