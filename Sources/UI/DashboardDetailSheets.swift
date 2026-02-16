@@ -8,7 +8,7 @@ struct OffeneRechnungenSheet: View {
     @State private var invoiceToDelete: InvoiceEntry?
 
     private let amountColumnWidth: CGFloat = 150
-    private let actionsColumnWidth: CGFloat = 320
+    private let actionsColumnWidth: CGFloat = 280
 
     var body: some View {
         ModalSheetContainer(title: "Rechnungen offen", onClose: { dismiss() }) {

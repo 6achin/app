@@ -83,45 +83,36 @@ extension View {
 
     func appPrimaryButtonStyle() -> some View {
         buttonStyle(.plain)
-            .font(.system(size: 12, weight: .semibold))
+            .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(AppPalette.textPrimary)
-            .frame(minHeight: 36)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .frame(minHeight: 30)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 6)
+            .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .fill(AppPalette.primaryAction)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(AppPalette.borderStrong, lineWidth: 1)
             )
     }
 
     func appSecondaryButtonStyle() -> some View {
         buttonStyle(.plain)
-            .font(.system(size: 13, weight: .medium))
+            .font(.system(size: 12, weight: .medium))
             .foregroundStyle(AppPalette.textMuted)
-            .frame(minHeight: 36)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .frame(minHeight: 30)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 6)
+            .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .fill(AppPalette.secondaryAction)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(AppPalette.border, lineWidth: 1)
             )
     }
 
     func closeIconButtonStyle() -> some View {
         buttonStyle(.plain)
-            .padding(8)
+            .padding(6)
             .background(AppPalette.closeBackground, in: Circle())
-            .overlay(Circle().stroke(AppPalette.closeBorder, lineWidth: 1))
     }
 
     func modalEditorStyle() -> some View {
@@ -161,19 +152,15 @@ extension View {
 
     func appSmallActionButtonStyle() -> some View {
         buttonStyle(.plain)
-            .font(.system(size: 13, weight: .semibold))
+            .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(AppPalette.textPrimary)
-            .frame(minHeight: 34)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .frame(minHeight: 28)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(AppPalette.inputSurface)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(AppPalette.borderStrong, lineWidth: 1)
             )
     }
 
