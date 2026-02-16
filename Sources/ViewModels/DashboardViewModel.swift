@@ -394,6 +394,24 @@ final class DashboardViewModel: ObservableObject {
         recalculateAllMetrics()
     }
 
+    func updateInvoice(_ entry: InvoiceEntry) {
+        guard let index = invoices.firstIndex(where: { $0.id == entry.id }) else { return }
+        invoices[index] = entry
+        recalculateAllMetrics()
+    }
+
+    func deleteInvoice(id: UUID) {
+        guard let index = invoices.firstIndex(where: { $0.id == id }) else { return }
+        let removed = invoices.remove(at: index)
+        if let fileName = removed.pdfStoredFileName {
+            let url = storedPDFsFolderURL.appendingPathComponent(fileName)
+            if FileManager.default.fileExists(atPath: url.path) {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+        recalculateAllMetrics()
+    }
+
     func addFixkostenEntry(_ entry: FixkostenEntry) {
         fixkostenEntries.append(entry)
         recalculateAllMetrics()
