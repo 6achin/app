@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(Combine)
+import Combine
+#endif
 #if canImport(UniformTypeIdentifiers)
 import UniformTypeIdentifiers
 #endif
@@ -691,6 +694,7 @@ final class DashboardViewModel: ObservableObject {
     func importBackup() -> Bool { false }
     #endif
 
+    #if canImport(AppKit)
     func openStoredPDF(for invoice: InvoiceEntry) {
         guard let url = storedPDFURL(for: invoice), FileManager.default.fileExists(atPath: url.path) else { return }
         NSWorkspace.shared.open(url)
