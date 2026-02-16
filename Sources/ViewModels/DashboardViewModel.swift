@@ -523,6 +523,32 @@ final class DashboardViewModel: ObservableObject {
         return storedPDFsFolderURL.appendingPathComponent(fileName)
     }
 
+    func hasInvoiceNumber(_ invoiceNumber: String) -> Bool {
+        let candidate = invoiceNumber.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !candidate.isEmpty else { return false }
+        return invoices.contains { ($0.invoiceNumber ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == candidate }
+    }
+
+    func normalizedPhoneForMessaging(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        var normalized = ""
+        for char in trimmed {
+            if char.isNumber {
+                normalized.append(char)
+            } else if char == "+" && normalized.isEmpty {
+                normalized.append(char)
+            }
+        }
+
+        if normalized.hasPrefix("00") {
+            normalized = "+" + normalized.dropFirst(2)
+        }
+
+        return normalized.isEmpty ? nil : normalized
+    }
+
     #if canImport(AppKit)
     func openStoredPDF(for invoice: InvoiceEntry) {
         guard let url = storedPDFURL(for: invoice), FileManager.default.fileExists(atPath: url.path) else { return }
@@ -530,8 +556,9 @@ final class DashboardViewModel: ObservableObject {
     }
 
     func openWhatsAppReminder(for invoice: InvoiceEntry) {
-        guard let phoneRaw = invoice.customerPhone else { return }
-        let phone = phoneRaw.filter { $0.isNumber }
+        guard let phoneRaw = invoice.customerPhone,
+              let normalized = normalizedPhoneForMessaging(phoneRaw) else { return }
+        let phone = normalized.filter { $0.isNumber }
         guard !phone.isEmpty else { return }
         let due = dueDate(for: invoice)?.formatted(date: .numeric, time: .omitted) ?? "bald"
         let invoiceNo = invoice.invoiceNumber ?? invoice.referenceNumber ?? invoice.title

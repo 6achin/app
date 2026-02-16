@@ -310,6 +310,32 @@ private struct AddInvoiceSheet: View {
         return due.formatted(date: .numeric, time: .omitted)
     }
 
+    private var missingRequiredFields: [String] {
+        var fields: [String] = []
+        if title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { fields.append("Bezeichnung") }
+        if invoiceNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { fields.append("Rechnungs-Nr.") }
+        if customerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { fields.append("Kunde") }
+        if netAmount <= 0 { fields.append("Zwischensumme (netto)") }
+        if type == .ausgangsrechnung && paymentTermDays == nil { fields.append("Tage bis Fälligkeit") }
+        return fields
+    }
+
+    private var hasDuplicateInvoiceNumber: Bool {
+        let trimmedInvoiceNumber = invoiceNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedInvoiceNumber.isEmpty else { return false }
+        return viewModel.hasInvoiceNumber(trimmedInvoiceNumber)
+    }
+
+    private var normalizedPhoneHint: String? {
+        guard let normalized = viewModel.normalizedPhoneForMessaging(customerPhone),
+              normalized != customerPhone.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
+        return normalized
+    }
+
+    private var isSaveDisabled: Bool {
+        !missingRequiredFields.isEmpty || hasDuplicateInvoiceNumber
+    }
+
     var body: some View {
         ModalSheetContainer(title: "Neue Rechnung", onClose: { dismiss() }) {
             VStack(alignment: .leading, spacing: 14) {
@@ -354,10 +380,24 @@ private struct AddInvoiceSheet: View {
                 Divider()
 
                 HStack {
-                    if let due = computedDueDateText {
-                        Label("Fällig am: \(due)", systemImage: "calendar.badge.clock")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let due = computedDueDateText {
+                            Label("Fällig am: \(due)", systemImage: "calendar.badge.clock")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        if !missingRequiredFields.isEmpty {
+                            Label("Pflichtfelder fehlen: \(missingRequiredFields.joined(separator: ", "))", systemImage: "exclamationmark.triangle.fill")
+                                .font(.footnote)
+                                .foregroundStyle(.orange)
+                        }
+
+                        if hasDuplicateInvoiceNumber {
+                            Label("Rechnungs-Nr. existiert bereits.", systemImage: "doc.on.doc")
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                        }
                     }
 
                     Spacer()
@@ -380,7 +420,7 @@ private struct AddInvoiceSheet: View {
                             taxNumber: taxNumber.isEmpty ? nil : taxNumber,
                             customerName: customerName.isEmpty ? nil : customerName,
                             customerAddress: customerAddress,
-                            customerPhone: customerPhone.isEmpty ? nil : customerPhone,
+                            customerPhone: viewModel.normalizedPhoneForMessaging(customerPhone),
                             paymentTermDays: type == .ausgangsrechnung ? paymentTermDays : nil,
                             paymentTermsText: paymentTermsText.isEmpty ? nil : paymentTermsText,
                             pdfStoredFileName: importedPDFFileName
@@ -389,7 +429,7 @@ private struct AddInvoiceSheet: View {
                         dismiss()
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled((netAmount <= 0 && grossAmountInput <= 0) || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(isSaveDisabled)
                 }
             }
             .font(.system(size: 15, weight: .regular))
@@ -421,6 +461,7 @@ private struct AddInvoiceSheet: View {
             if source == .manual {
                 HStack {
                     Spacer()
+                    Button("Vorlage kopieren") { copyInvoiceTemplateToClipboard() }
                     Button("Aus Zwischenablage einfügen") { importFromClipboard() }
                 }
             }
@@ -442,11 +483,19 @@ private struct AddInvoiceSheet: View {
 
     private var customerStep: some View {
         GroupBox("Firma/Kunde") {
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                TextField("Name", text: $customerName).modalEditorStyle()
-                TextField("Straße und Hausnummer", text: $customerStreet).modalEditorStyle()
-                TextField("PLZ und Stadt", text: $customerPostalCity).modalEditorStyle()
-                TextField("Telefon / WhatsApp", text: $customerPhone).modalEditorStyle()
+            VStack(alignment: .leading, spacing: 8) {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    TextField("Name", text: $customerName).modalEditorStyle()
+                    TextField("Straße und Hausnummer", text: $customerStreet).modalEditorStyle()
+                    TextField("PLZ und Stadt", text: $customerPostalCity).modalEditorStyle()
+                    TextField("Telefon / WhatsApp", text: $customerPhone).modalEditorStyle()
+                }
+
+                if let normalizedPhoneHint {
+                    Text("WhatsApp-Format: \(normalizedPhoneHint)")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -531,6 +580,30 @@ private struct AddInvoiceSheet: View {
               let parsed = viewModel.importInvoiceFromClipboardText(clipboardText) else { return }
         source = .manual
         applyParsedInvoice(parsed)
+        #endif
+    }
+
+    private func copyInvoiceTemplateToClipboard() {
+        #if canImport(AppKit)
+        let template = """
+        Bezug:
+        Rechnungs-Nr.:
+        Rechnungsdatum:
+        Kunden-Nr.:
+        USt-IdNr.:
+        Steuernummer:
+        Name:
+        Straße und Hausnummer:
+        PLZ und Stadt:
+        Telefon:
+        Zwischensumme (netto):
+        Ust. 19%:
+        Gesamtbetrag:
+        Zahlungsbedingungen: 14 Tage ab Rechnungsdatum.
+        """
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(template, forType: .string)
         #endif
     }
 
