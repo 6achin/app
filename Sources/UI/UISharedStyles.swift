@@ -81,7 +81,7 @@ extension View {
 
     func appPrimaryButtonStyle() -> some View {
         buttonStyle(.plain)
-            .font(.system(size: 14, weight: .semibold))
+            .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(AppPalette.textPrimary)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
@@ -97,7 +97,7 @@ extension View {
 
     func appSecondaryButtonStyle() -> some View {
         buttonStyle(.plain)
-            .font(.system(size: 14, weight: .medium))
+            .font(.system(size: 13, weight: .medium))
             .foregroundStyle(AppPalette.textMuted)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
@@ -120,10 +120,10 @@ extension View {
 
     func modalEditorStyle() -> some View {
         textFieldStyle(.plain)
-            .font(.system(size: 16, weight: .medium))
+            .font(.system(size: 15, weight: .medium))
             .foregroundStyle(AppPalette.textPrimary)
             .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.vertical, 9)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(AppPalette.inputSurface)

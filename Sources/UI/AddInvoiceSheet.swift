@@ -111,14 +111,14 @@ struct AddInvoiceSheet: View {
 
     private var formColumns: [GridItem] {
         [
-            GridItem(.flexible(), spacing: 12, alignment: .top),
-            GridItem(.flexible(), spacing: 12, alignment: .top)
+            GridItem(.flexible(), spacing: 14, alignment: .top),
+            GridItem(.flexible(), spacing: 14, alignment: .top)
         ]
     }
 
     var body: some View {
         ModalSheetContainer(title: "Neue Rechnung", onClose: { dismiss() }) {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 12) {
                     Picker("Quelle", selection: $source) {
                         ForEach(InvoiceSource.allCases) { value in
@@ -216,9 +216,9 @@ struct AddInvoiceSheet: View {
                     .disabled(isSaveDisabled)
                 }
             }
-            .font(.system(size: 15, weight: .regular))
+            .font(.system(size: 14, weight: .regular))
         }
-        .frame(width: 800, height: 720)
+        .frame(width: 860, height: 760)
     }
 
     private var basisStep: some View {
@@ -256,19 +256,19 @@ struct AddInvoiceSheet: View {
             }
 
             GroupBox("Rechnungsdaten") {
-                LazyVGrid(columns: formColumns, spacing: 10) {
+                LazyVGrid(columns: formColumns, spacing: 12) {
                     TextField("Bezeichnung", text: $title).modalEditorStyle()
                     TextField("Bezug", text: $referenceNumber).modalEditorStyle()
                     TextField("Rechnungs-Nr.", text: $invoiceNumber).modalEditorStyle()
 
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Rechnungsdatum")
-                            .font(.callout.weight(.medium))
+                            .font(.footnote.weight(.semibold))
                             .foregroundStyle(AppPalette.textSecondary)
                         DatePicker("", selection: $issuedAt, displayedComponents: .date)
                             .labelsHidden()
                             .datePickerStyle(.field)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
                             .background(
@@ -295,7 +295,7 @@ struct AddInvoiceSheet: View {
     private var customerStep: some View {
         GroupBox("Firma/Kunde") {
             VStack(alignment: .leading, spacing: 8) {
-                LazyVGrid(columns: formColumns, spacing: 10) {
+                LazyVGrid(columns: formColumns, spacing: 12) {
                     TextField("Name", text: $customerName).modalEditorStyle()
                     TextField("Straße und Hausnummer", text: $customerStreet).modalEditorStyle()
                     TextField("PLZ und Stadt", text: $customerPostalCity).modalEditorStyle()
@@ -332,7 +332,7 @@ struct AddInvoiceSheet: View {
                             Text("€ \(vatCalculatedText)")
                                 .font(.headline.weight(.semibold))
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         .padding(10)
                         .background(AppPalette.inputSurface)
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -344,7 +344,7 @@ struct AddInvoiceSheet: View {
                             Text("€ \(grossCalculatedText)")
                                 .font(.headline.weight(.semibold))
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         .padding(10)
                         .background(AppPalette.inputSurface)
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
