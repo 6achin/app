@@ -13,6 +13,7 @@ struct OffeneRechnungenSheet: View {
                 openInvoiceRow(invoice)
             }
             .appListStyle()
+            .foregroundStyle(AppPalette.textPrimary)
             .frame(minHeight: 180)
 
             Text("Eingangsrechnungen")
@@ -21,6 +22,7 @@ struct OffeneRechnungenSheet: View {
                 openInvoiceRow(invoice)
             }
             .appListStyle()
+            .foregroundStyle(AppPalette.textPrimary)
             .frame(minHeight: 180)
         }
         .frame(minWidth: 760, minHeight: 600)
@@ -82,6 +84,7 @@ struct UmsatzDetailsSheet: View {
                 }
             }
             .appListStyle()
+            .foregroundStyle(AppPalette.textPrimary)
         }
         .frame(minWidth: 760, minHeight: 600)
     }
@@ -125,6 +128,7 @@ struct UmsatzsteuerSheet: View {
                 .font(.footnote)
             }
             .appListStyle()
+            .foregroundStyle(AppPalette.textPrimary)
         }
         .frame(minWidth: 760, minHeight: 520)
     }
@@ -150,6 +154,7 @@ struct EinnahmenSheet: View {
                 }
             }
             .appListStyle()
+            .foregroundStyle(AppPalette.textPrimary)
         }
         .frame(minWidth: 760, minHeight: 520)
     }

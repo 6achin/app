@@ -251,6 +251,7 @@ struct AddInvoiceSheet: View {
                         .gridCellColumns(2)
                 }
             }
+            .foregroundStyle(AppPalette.textPrimary)
         }
     }
 

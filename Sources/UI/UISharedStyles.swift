@@ -51,6 +51,7 @@ struct ModalSheetContainer<Content: View>: View {
         }
         .padding(20)
         .appSurface(cornerRadius: 18)
+        .preferredColorScheme(.light)
     }
 }
 
@@ -140,7 +141,9 @@ extension View {
     }
 
     func appListStyle() -> some View {
-        scrollContentBackground(.visible)
+        scrollContentBackground(.hidden)
+            .background(AppPalette.surface)
             .listStyle(.inset)
+            .environment(\.colorScheme, .light)
     }
 }

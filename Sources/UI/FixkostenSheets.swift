@@ -56,6 +56,7 @@ struct FixkostenSheet: View {
                     }
                 }
                 .appListStyle()
+                .foregroundStyle(AppPalette.textPrimary)
             }
             .padding(20)
         }
