@@ -47,11 +47,7 @@ struct DashboardView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color(red: 0.93, green: 0.93, blue: 0.94), Color(red: 0.88, green: 0.88, blue: 0.90)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            Color.clear
                 .ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 22) {
@@ -59,10 +55,10 @@ struct DashboardView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Dashboard")
                             .font(.system(size: 34, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color(red: 0.12, green: 0.14, blue: 0.18))
+                            .foregroundStyle(AppPalette.textPrimary)
                         Text("Willkommen zurück, bachin")
                             .font(.title3)
-                            .foregroundStyle(Color(red: 0.24, green: 0.25, blue: 0.29))
+                            .foregroundStyle(AppPalette.textSecondary)
                     }
 
                     Spacer()
@@ -106,6 +102,7 @@ struct DashboardView: View {
             .padding(24)
             .frame(maxWidth: 1280, maxHeight: .infinity, alignment: .topLeading)
         }
+        .appBackgroundStyle()
         .sheet(item: $selectedSheet) { sheet in
             switch sheet {
             case .umsatz:
@@ -157,7 +154,7 @@ struct DashboardView: View {
             Text(viewModel.monthTitle(for: activeMonthStart))
                 .font(.headline.weight(.semibold))
                 .frame(minWidth: 220)
-                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.22))
+                .foregroundStyle(AppPalette.textPrimary)
 
             Button {
                 selectNextMonth()
