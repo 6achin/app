@@ -59,9 +59,10 @@ struct DashboardView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Dashboard")
                             .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .foregroundStyle(Color.black.opacity(0.86))
                         Text("Willkommen zurück, bachin")
                             .font(.title3)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.black.opacity(0.62))
                     }
 
                     Spacer()
@@ -222,11 +223,11 @@ private struct KPIButtonCard: View {
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(red: 0.988, green: 0.99, blue: 0.997))
+                    .fill(Color(red: 0.975, green: 0.978, blue: 0.986))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.black.opacity(0.12), lineWidth: 1)
+                    .stroke(Color.black.opacity(0.18), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 4)
@@ -658,6 +659,7 @@ private struct OffeneRechnungenSheet: View {
             List(viewModel.openInvoicesOutgoing) { invoice in
                 openInvoiceRow(invoice)
             }
+            .appListStyle()
             .frame(minHeight: 180)
 
             Text("Eingangsrechnungen")
@@ -665,6 +667,7 @@ private struct OffeneRechnungenSheet: View {
             List(viewModel.openInvoicesIncoming) { invoice in
                 openInvoiceRow(invoice)
             }
+            .appListStyle()
             .frame(minHeight: 180)
         }
         .frame(minWidth: 760, minHeight: 600)
@@ -725,6 +728,7 @@ private struct UmsatzDetailsSheet: View {
                     }
                 }
             }
+            .appListStyle()
         }
         .frame(minWidth: 760, minHeight: 600)
     }
@@ -767,6 +771,7 @@ private struct UmsatzsteuerSheet: View {
                 }
                 .font(.footnote)
             }
+            .appListStyle()
         }
         .frame(minWidth: 760, minHeight: 520)
     }
@@ -791,6 +796,7 @@ private struct EinnahmenSheet: View {
                         .fontWeight(.semibold)
                 }
             }
+            .appListStyle()
         }
         .frame(minWidth: 760, minHeight: 520)
     }
@@ -851,6 +857,7 @@ private struct FixkostenSheet: View {
                         }
                     }
                 }
+                .appListStyle()
             }
             .padding(20)
         }
@@ -1081,11 +1088,11 @@ private struct ModalSheetContainer<Content: View>: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(red: 0.988, green: 0.99, blue: 0.997))
+                .fill(Color(red: 0.975, green: 0.978, blue: 0.986))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.black.opacity(0.12), lineWidth: 1)
+                .stroke(Color.black.opacity(0.18), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .shadow(color: .black.opacity(0.04), radius: 10, x: 0, y: 4)
@@ -1096,12 +1103,13 @@ private extension View {
     func appPrimaryButtonStyle() -> some View {
         buttonStyle(.borderedProminent)
             .controlSize(.regular)
-            .tint(Color(red: 0.17, green: 0.46, blue: 0.96))
+            .tint(Color(red: 0.24, green: 0.33, blue: 0.47))
     }
 
     func appSecondaryButtonStyle() -> some View {
         buttonStyle(.bordered)
             .controlSize(.regular)
+            .foregroundStyle(Color.black.opacity(0.8))
     }
 
     func closeIconButtonStyle() -> some View {
@@ -1123,5 +1131,11 @@ private extension View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(Color.black.opacity(0.16), lineWidth: 1)
             )
+    }
+
+    func appListStyle() -> some View {
+        scrollContentBackground(.hidden)
+            .background(Color.clear)
+            .listStyle(.inset)
     }
 }

@@ -63,6 +63,7 @@ struct LoginView: View {
 
                 Button("Einloggen", action: viewModel.login)
                     .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.24, green: 0.33, blue: 0.47))
                     .keyboardShortcut(.defaultAction)
                     .help("Einloggen (Enter)")
                     .controlSize(.large)
