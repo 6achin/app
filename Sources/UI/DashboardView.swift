@@ -49,7 +49,7 @@ struct DashboardView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(nsColor: .windowBackgroundColor), Color.accentColor.opacity(0.08)],
+                colors: [Color.white, Color(red: 0.96, green: 0.97, blue: 0.99)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -219,13 +219,16 @@ private struct KPIButtonCard: View {
             }
             .frame(maxWidth: .infinity, minHeight: 108, alignment: .leading)
             .padding(16)
-            .background(.regularMaterial)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.white)
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                    .stroke(Color.black.opacity(0.06), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 6)
+            .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 4)
         }
         .buttonStyle(.plain)
     }
@@ -525,7 +528,7 @@ private struct AddInvoiceSheet: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(10)
-                        .background(Color.primary.opacity(0.04))
+                        .background(Color.black.opacity(0.03))
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
                         VStack(alignment: .leading, spacing: 4) {
@@ -537,7 +540,7 @@ private struct AddInvoiceSheet: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(10)
-                        .background(Color.primary.opacity(0.04))
+                        .background(Color.black.opacity(0.03))
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
 
@@ -1075,12 +1078,16 @@ private struct ModalSheetContainer<Content: View>: View {
             content()
         }
         .padding(20)
-        .background(.regularMaterial)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white)
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                .stroke(Color.black.opacity(0.06), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: .black.opacity(0.04), radius: 10, x: 0, y: 4)
     }
 }
 
@@ -1088,6 +1095,7 @@ private extension View {
     func appPrimaryButtonStyle() -> some View {
         buttonStyle(.borderedProminent)
             .controlSize(.regular)
+            .tint(Color(red: 0.17, green: 0.46, blue: 0.96))
     }
 
     func appSecondaryButtonStyle() -> some View {
@@ -1098,7 +1106,7 @@ private extension View {
     func closeIconButtonStyle() -> some View {
         buttonStyle(.plain)
             .padding(8)
-            .background(Color.primary.opacity(0.08), in: Circle())
+            .background(Color.black.opacity(0.06), in: Circle())
     }
 
     func modalEditorStyle() -> some View {
@@ -1108,11 +1116,11 @@ private extension View {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(nsColor: .textBackgroundColor).opacity(0.7))
+                    .fill(Color.white)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+                    .stroke(Color.black.opacity(0.08), lineWidth: 1)
             )
     }
 }

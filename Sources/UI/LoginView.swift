@@ -13,7 +13,7 @@ struct LoginView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(nsColor: .windowBackgroundColor), Color.accentColor.opacity(0.14)],
+                colors: [Color.white, Color(red: 0.95, green: 0.97, blue: 1.0)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -63,13 +63,13 @@ struct LoginView: View {
             }
             .padding(28)
             .frame(width: 460)
-            .background(.ultraThinMaterial)
+            .background(Color.white)
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                    .stroke(Color.black.opacity(0.08), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .shadow(color: .black.opacity(0.08), radius: 20, x: 0, y: 10)
+            .shadow(color: .black.opacity(0.05), radius: 14, x: 0, y: 6)
             .onAppear {
                 focusedField = .username
             }
@@ -85,11 +85,11 @@ private extension View {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(nsColor: .textBackgroundColor).opacity(0.75))
+                    .fill(Color.white)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+                    .stroke(Color.black.opacity(0.08), lineWidth: 1)
             )
     }
 }
