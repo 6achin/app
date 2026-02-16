@@ -140,6 +140,35 @@ extension View {
             .foregroundStyle(AppPalette.textPrimary)
     }
 
+
+    func appSmallActionButtonStyle() -> some View {
+        buttonStyle(.plain)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(AppPalette.textPrimary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(AppPalette.inputSurface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(AppPalette.borderStrong, lineWidth: 1)
+            )
+    }
+
+    func appFormGroupStyle() -> some View {
+        padding(8)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppPalette.surface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(AppPalette.border, lineWidth: 1)
+            )
+    }
+
     func appListStyle() -> some View {
         scrollContentBackground(.hidden)
             .background(AppPalette.surface)

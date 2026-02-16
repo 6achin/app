@@ -109,6 +109,13 @@ struct AddInvoiceSheet: View {
         !missingRequiredFields.isEmpty || hasDuplicateInvoiceNumber
     }
 
+    private var formColumns: [GridItem] {
+        [
+            GridItem(.flexible(), spacing: 12, alignment: .top),
+            GridItem(.flexible(), spacing: 12, alignment: .top)
+        ]
+    }
+
     var body: some View {
         ModalSheetContainer(title: "Neue Rechnung", onClose: { dismiss() }) {
             VStack(alignment: .leading, spacing: 14) {
@@ -176,6 +183,9 @@ struct AddInvoiceSheet: View {
                     Spacer()
 
                     Button("Abbrechen", role: .cancel) { dismiss() }
+                        .appSecondaryButtonStyle()
+                        .frame(minWidth: 140)
+
                     Button("Speichern") {
                         let normalizedNet = netAmount > 0 ? netAmount : (grossAmountInput > 0 ? grossAmountInput / (1 + vatRate) : 0)
                         let invoice = InvoiceEntry(
@@ -202,6 +212,7 @@ struct AddInvoiceSheet: View {
                         dismiss()
                     }
                     .appPrimaryButtonStyle()
+                    .frame(minWidth: 140)
                     .disabled(isSaveDisabled)
                 }
             }
@@ -220,7 +231,9 @@ struct AddInvoiceSheet: View {
                             .lineLimit(1)
                         Spacer()
                         Button("PDF wählen") { importFromPDF() }
+                            .appSmallActionButtonStyle()
                         Button("Aus Zwischenablage") { importFromClipboard() }
+                            .appSmallActionButtonStyle()
                     }
 
                     if parsedLineItemsCount > 0 {
@@ -229,28 +242,52 @@ struct AddInvoiceSheet: View {
                             .foregroundStyle(AppPalette.textSecondary)
                     }
                 }
+                .appFormGroupStyle()
             }
 
             if source == .manual {
                 HStack {
                     Spacer()
                     Button("Vorlage kopieren") { copyInvoiceTemplateToClipboard() }
+                        .appSmallActionButtonStyle()
                     Button("Aus Zwischenablage einfügen") { importFromClipboard() }
+                        .appSmallActionButtonStyle()
                 }
             }
 
             GroupBox("Rechnungsdaten") {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                LazyVGrid(columns: formColumns, spacing: 10) {
                     TextField("Bezeichnung", text: $title).modalEditorStyle()
                     TextField("Bezug", text: $referenceNumber).modalEditorStyle()
                     TextField("Rechnungs-Nr.", text: $invoiceNumber).modalEditorStyle()
-                    DatePicker("Rechnungsdatum", selection: $issuedAt, displayedComponents: .date)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Rechnungsdatum")
+                            .font(.callout.weight(.medium))
+                            .foregroundStyle(AppPalette.textSecondary)
+                        DatePicker("", selection: $issuedAt, displayedComponents: .date)
+                            .labelsHidden()
+                            .datePickerStyle(.field)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(AppPalette.inputSurface)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(AppPalette.borderStrong, lineWidth: 1)
+                            )
+                    }
+
                     TextField("Kunden-Nr.", text: $customerNumber).modalEditorStyle()
                     TextField("USt-IdNr.", text: $ustIdNr).modalEditorStyle()
                     TextField("Steuernummer", text: $taxNumber).modalEditorStyle()
                         .gridCellColumns(2)
                 }
             }
+            .appFormGroupStyle()
             .foregroundStyle(AppPalette.textPrimary)
         }
     }
@@ -258,7 +295,7 @@ struct AddInvoiceSheet: View {
     private var customerStep: some View {
         GroupBox("Firma/Kunde") {
             VStack(alignment: .leading, spacing: 8) {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                LazyVGrid(columns: formColumns, spacing: 10) {
                     TextField("Name", text: $customerName).modalEditorStyle()
                     TextField("Straße und Hausnummer", text: $customerStreet).modalEditorStyle()
                     TextField("PLZ und Stadt", text: $customerPostalCity).modalEditorStyle()
@@ -272,6 +309,7 @@ struct AddInvoiceSheet: View {
                 }
             }
         }
+        .appFormGroupStyle()
     }
 
     private var amountStep: some View {
@@ -320,6 +358,7 @@ struct AddInvoiceSheet: View {
                         .onChange(of: vatRate) { _ in grossInput = grossCalculatedText }
                 }
             }
+            .appFormGroupStyle()
 
             GroupBox("Zahlung") {
                 VStack(spacing: 8) {
@@ -327,6 +366,7 @@ struct AddInvoiceSheet: View {
                     TextField("Tage bis Fälligkeit (z.B. 14 oder 21)", text: $paymentTermDaysInput).modalEditorStyle()
                 }
             }
+            .appFormGroupStyle()
         }
     }
 
