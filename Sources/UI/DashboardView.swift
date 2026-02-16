@@ -26,6 +26,8 @@ struct DashboardView: View {
     @State private var showAddInvoiceSheet = false
     @State private var selectedMonthStart: Date?
     @State private var showClearDataAlert = false
+    @State private var showBackupAlert = false
+    @State private var backupAlertMessage = ""
     @State private var didInitialRefresh = false
 
     private let cardColumns = [GridItem(.adaptive(minimum: 250), spacing: 14)]
@@ -71,6 +73,22 @@ struct DashboardView: View {
                     .appPrimaryButtonStyle()
                     .keyboardShortcut("n", modifiers: [.command])
                     .help("Neue Rechnung hinzufügen (⌘N)")
+
+                    Button("Backup exportieren") {
+                        backupAlertMessage = viewModel.exportBackup()
+                            ? "Backup wurde erfolgreich gespeichert."
+                            : "Backup konnte nicht gespeichert werden."
+                        showBackupAlert = true
+                    }
+                    .appSecondaryButtonStyle()
+
+                    Button("Backup laden") {
+                        backupAlertMessage = viewModel.importBackup()
+                            ? "Backup wurde erfolgreich geladen."
+                            : "Backup konnte nicht geladen werden."
+                        showBackupAlert = true
+                    }
+                    .appSecondaryButtonStyle()
 
                     Button("Abmelden", action: onLogout)
                         .appSecondaryButtonStyle()
@@ -138,6 +156,11 @@ struct DashboardView: View {
             Button("Abbrechen", role: .cancel) {}
         } message: {
             Text("Diese Aktion entfernt alle Rechnungen und Fixkosten dauerhaft aus dem lokalen Speicher.")
+        }
+        .alert("Backup", isPresented: $showBackupAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(backupAlertMessage)
         }
     }
 

@@ -205,6 +205,12 @@ final class DashboardViewModel: ObservableObject {
         var kreditUndDarlehenMonatlich: Double
     }
 
+    private struct BackupPayload: Codable {
+        var exportedAt: Date
+        var data: PersistedData
+        var storedPDFs: [String: String]
+    }
+
     private static let defaultInvoices: [InvoiceEntry] = [
         InvoiceEntry(title: "Rechnung #1001", source: .manual, type: .ausgangsrechnung, netAmount: 8200, vatRate: 0.19, isPaid: true, issuedAt: Calendar.current.date(byAdding: .day, value: -24, to: Date())!, paidAt: Calendar.current.date(byAdding: .day, value: -10, to: Date())),
         InvoiceEntry(title: "Rechnung #1002", source: .manual, type: .ausgangsrechnung, netAmount: 5400, vatRate: 0.19, isPaid: false, issuedAt: Calendar.current.date(byAdding: .day, value: -12, to: Date())!),
@@ -572,6 +578,83 @@ final class DashboardViewModel: ObservableObject {
 
         return normalized.isEmpty ? nil : normalized
     }
+
+
+    #if canImport(AppKit)
+    @discardableResult
+    func exportBackup() -> Bool {
+        let panel = NSSavePanel()
+        panel.allowedFileTypes = ["babackup", "json"]
+        panel.nameFieldStringValue = "business-accounting-backup.babackup"
+        panel.canCreateDirectories = true
+        panel.isExtensionHidden = false
+
+        guard panel.runModal() == .OK, let destinationURL = panel.url else { return false }
+
+        let persistedData = PersistedData(
+            invoices: invoices,
+            fixkostenEntries: fixkostenEntries,
+            kreditUndDarlehenMonatlich: kreditUndDarlehenMonatlich
+        )
+
+        let storedFileNames = Set(invoices.compactMap { $0.pdfStoredFileName })
+        var storedPDFs: [String: String] = [:]
+
+        for fileName in storedFileNames {
+            let fileURL = storedPDFsFolderURL.appendingPathComponent(fileName)
+            guard let data = try? Data(contentsOf: fileURL) else { continue }
+            storedPDFs[fileName] = data.base64EncodedString()
+        }
+
+        let payload = BackupPayload(exportedAt: Date(), data: persistedData, storedPDFs: storedPDFs)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+
+        guard let encoded = try? encoder.encode(payload) else { return false }
+        do {
+            try encoded.write(to: destinationURL, options: .atomic)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    @discardableResult
+    func importBackup() -> Bool {
+        let panel = NSOpenPanel()
+        panel.allowedFileTypes = ["babackup", "json"]
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+
+        guard panel.runModal() == .OK, let sourceURL = panel.url,
+              let raw = try? Data(contentsOf: sourceURL) else { return false }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let payload = try? decoder.decode(BackupPayload.self, from: raw) else { return false }
+
+        invoices = payload.data.invoices
+        fixkostenEntries = payload.data.fixkostenEntries
+        kreditUndDarlehenMonatlich = payload.data.kreditUndDarlehenMonatlich
+
+        for (fileName, base64) in payload.storedPDFs {
+            guard let data = Data(base64Encoded: base64) else { continue }
+            let fileURL = storedPDFsFolderURL.appendingPathComponent(fileName)
+            try? data.write(to: fileURL, options: .atomic)
+        }
+
+        recalculateAllMetrics()
+        return true
+    }
+    #else
+    @discardableResult
+    func exportBackup() -> Bool { false }
+
+    @discardableResult
+    func importBackup() -> Bool { false }
+    #endif
 
     #if canImport(AppKit)
     func openStoredPDF(for invoice: InvoiceEntry) {
