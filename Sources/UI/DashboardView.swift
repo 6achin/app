@@ -49,7 +49,7 @@ struct DashboardView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(red: 0.92, green: 0.94, blue: 0.97), Color(red: 0.86, green: 0.89, blue: 0.94)],
+                colors: [Color(red: 0.93, green: 0.93, blue: 0.94), Color(red: 0.88, green: 0.88, blue: 0.90)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -62,7 +62,7 @@ struct DashboardView: View {
                             .foregroundStyle(Color(red: 0.12, green: 0.14, blue: 0.18))
                         Text("Willkommen zurück, bachin")
                             .font(.title3)
-                            .foregroundStyle(Color(red: 0.28, green: 0.31, blue: 0.36))
+                            .foregroundStyle(Color(red: 0.24, green: 0.25, blue: 0.29))
                     }
 
                     Spacer()
@@ -157,7 +157,7 @@ struct DashboardView: View {
             Text(viewModel.monthTitle(for: activeMonthStart))
                 .font(.headline.weight(.semibold))
                  .frame(minWidth: 220)
-                .foregroundStyle(Color(red: 0.16, green: 0.19, blue: 0.25))
+                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.22))
 
             Button {
                 selectNextMonth()
@@ -211,27 +211,27 @@ private struct KPIButtonCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(card.title)
                     .font(.headline.weight(.semibold))
-                    .foregroundStyle(Color(red: 0.23, green: 0.26, blue: 0.31))
+                    .foregroundStyle(card.type == .umsatz ? Color.white.opacity(0.88) : Color(red: 0.21, green: 0.22, blue: 0.26))
                 Text(card.value)
                     .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color(red: 0.08, green: 0.10, blue: 0.14))
+                    .foregroundStyle(card.type == .umsatz ? Color.white : Color(red: 0.11, green: 0.12, blue: 0.16))
                     .minimumScaleFactor(0.85)
                 Text(card.note)
                     .font(.callout)
-                    .foregroundStyle(Color(red: 0.33, green: 0.36, blue: 0.42))
+                    .foregroundStyle(card.type == .umsatz ? Color(red: 0.70, green: 0.93, blue: 0.76) : Color(red: 0.36, green: 0.37, blue: 0.41))
             }
             .frame(maxWidth: .infinity, minHeight: 108, alignment: .leading)
             .padding(16)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                     .fill(Color(red: 0.965, green: 0.972, blue: 0.985))
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(card.type == .umsatz ? Color(red: 0.17, green: 0.18, blue: 0.20) : Color(red: 0.94, green: 0.94, blue: 0.95))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color(red: 0.70, green: 0.74, blue: 0.81), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(card.type == .umsatz ? Color(red: 0.24, green: 0.25, blue: 0.28) : Color(red: 0.78, green: 0.78, blue: 0.80), lineWidth: 1)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .shadow(color: .black.opacity(card.type == .umsatz ? 0.10 : 0.05), radius: 7, x: 0, y: 2)
         }
         .buttonStyle(.plain)
     }
@@ -1089,11 +1089,11 @@ private struct ModalSheetContainer<Content: View>: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                 .fill(Color(red: 0.96, green: 0.968, blue: 0.982))
+                 .fill(Color(red: 0.945, green: 0.945, blue: 0.955))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color(red: 0.68, green: 0.72, blue: 0.79), lineWidth: 1)
+                .stroke(Color(red: 0.76, green: 0.76, blue: 0.79), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 3)
@@ -1111,14 +1111,14 @@ private extension View {
         buttonStyle(.bordered)
             .controlSize(.regular)
             .foregroundStyle(Color(red: 0.18, green: 0.22, blue: 0.28))
-            .tint(Color(red: 0.62, green: 0.66, blue: 0.73))
+            .tint(Color(red: 0.74, green: 0.74, blue: 0.78))
     }
 
     func closeIconButtonStyle() -> some View {
         buttonStyle(.plain)
             .padding(8)
-             .background(Color(red: 0.88, green: 0.91, blue: 0.96), in: Circle())
-             .overlay(Circle().stroke(Color(red: 0.62, green: 0.67, blue: 0.75), lineWidth: 1))
+             .background(Color(red: 0.86, green: 0.86, blue: 0.89), in: Circle())
+             .overlay(Circle().stroke(Color(red: 0.70, green: 0.70, blue: 0.73), lineWidth: 1))
     }
 
     func modalEditorStyle() -> some View {
@@ -1128,11 +1128,11 @@ private extension View {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                     .fill(Color(red: 0.97, green: 0.976, blue: 0.988))
+                     .fill(Color(red: 0.965, green: 0.965, blue: 0.975))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color(red: 0.66, green: 0.71, blue: 0.79), lineWidth: 1)
+                    .stroke(Color(red: 0.73, green: 0.73, blue: 0.77), lineWidth: 1)
             )
     }
 

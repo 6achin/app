@@ -13,7 +13,7 @@ struct LoginView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(red: 0.92, green: 0.94, blue: 0.97), Color(red: 0.86, green: 0.89, blue: 0.94)],
+                colors: [Color(red: 0.93, green: 0.93, blue: 0.94), Color(red: 0.88, green: 0.88, blue: 0.90)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -38,7 +38,7 @@ struct LoginView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Benutzername")
                             .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Color(red: 0.24, green: 0.28, blue: 0.35))
+                            .foregroundStyle(Color(red: 0.23, green: 0.23, blue: 0.27))
                         TextField("Benutzername", text: $viewModel.username)
                             .loginInputStyle()
                             .focused($focusedField, equals: .username)
@@ -47,7 +47,7 @@ struct LoginView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Passwort")
                             .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Color(red: 0.24, green: 0.28, blue: 0.35))
+                            .foregroundStyle(Color(red: 0.23, green: 0.23, blue: 0.27))
                         SecureField("Passwort", text: $viewModel.password)
                             .loginInputStyle()
                             .focused($focusedField, equals: .password)
@@ -75,10 +75,10 @@ struct LoginView: View {
             }
             .padding(28)
             .frame(width: 460)
-             .background(Color(red: 0.958, green: 0.966, blue: 0.982))
+             .background(Color(red: 0.945, green: 0.945, blue: 0.955))
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color(red: 0.66, green: 0.71, blue: 0.79), lineWidth: 1)
+                    .stroke(Color(red: 0.76, green: 0.76, blue: 0.79), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 3)
@@ -97,11 +97,11 @@ private extension View {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                     .fill(Color(red: 0.97, green: 0.976, blue: 0.988))
+                     .fill(Color(red: 0.965, green: 0.965, blue: 0.975))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color(red: 0.63, green: 0.68, blue: 0.77), lineWidth: 1)
+                    .stroke(Color(red: 0.73, green: 0.73, blue: 0.77), lineWidth: 1)
             )
     }
 }
