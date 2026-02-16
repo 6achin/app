@@ -28,7 +28,7 @@ struct DashboardView: View {
     @State private var selectedMonthStart: Date?
     @State private var showClearDataAlert = false
 
-    private let cardColumns = [GridItem(.adaptive(minimum: 220), spacing: 10)]
+    private let cardColumns = [GridItem(.adaptive(minimum: 270), spacing: 14)]
 
     private var availableMonths: [Date] {
         viewModel.availableMonths()
@@ -53,12 +53,13 @@ struct DashboardView: View {
                 endPoint: .bottomTrailing
             )
                 .ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 22) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Dashboard")
-                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .font(.system(size: 38, weight: .bold, design: .rounded))
                         Text("Willkommen zurück, bachin")
+                            .font(.title3)
                             .foregroundStyle(.secondary)
                     }
 
@@ -84,7 +85,7 @@ struct DashboardView: View {
 
                 monthNavigation
 
-                LazyVGrid(columns: cardColumns, spacing: 10) {
+                LazyVGrid(columns: cardColumns, spacing: 14) {
                     ForEach(displayedCards) { card in
                         KPIButtonCard(card: card) {
                             switch card.type {
@@ -100,8 +101,8 @@ struct DashboardView: View {
 
                 Spacer()
             }
-            .padding(24)
-            .frame(maxWidth: 1120, maxHeight: .infinity, alignment: .topLeading)
+            .padding(28)
+            .frame(maxWidth: 1380, maxHeight: .infinity, alignment: .topLeading)
         }
         .sheet(item: $selectedSheet) { sheet in
             switch sheet {
@@ -150,8 +151,8 @@ struct DashboardView: View {
             .disabled(!canSelectPreviousMonth)
 
             Text(viewModel.monthTitle(for: activeMonthStart))
-                .font(.subheadline.weight(.semibold))
-                .frame(minWidth: 170)
+                .font(.title3.weight(.semibold))
+                .frame(minWidth: 220)
 
             Button {
                 selectNextMonth()
@@ -202,18 +203,19 @@ private struct KPIButtonCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(card.title)
-                    .font(.body.weight(.medium))
+                    .font(.headline.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Text(card.value)
-                    .font(.title2.weight(.bold))
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .minimumScaleFactor(0.85)
                 Text(card.note)
-                    .font(.callout)
+                    .font(.body)
                     .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
-            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 122, alignment: .leading)
+            .padding(16)
             .background(.regularMaterial)
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -390,8 +392,9 @@ private struct AddInvoiceSheet: View {
                     .disabled((netAmount <= 0 && grossAmountInput <= 0) || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
+            .font(.system(size: 16, weight: .regular))
         }
-        .frame(width: 680, height: 760)
+        .frame(width: 860, height: 780)
     }
 
     private var basisStep: some View {
@@ -415,7 +418,7 @@ private struct AddInvoiceSheet: View {
             }
 
             GroupBox("Rechnungsdaten") {
-                VStack(spacing: 8) {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                     TextField("Bezeichnung", text: $title).modalEditorStyle()
                     TextField("Bezug", text: $referenceNumber).modalEditorStyle()
                     TextField("Rechnungs-Nr.", text: $invoiceNumber).modalEditorStyle()
@@ -423,6 +426,7 @@ private struct AddInvoiceSheet: View {
                     TextField("Kunden-Nr.", text: $customerNumber).modalEditorStyle()
                     TextField("USt-IdNr.", text: $ustIdNr).modalEditorStyle()
                     TextField("Steuernummer", text: $taxNumber).modalEditorStyle()
+                        .gridCellColumns(2)
                 }
             }
         }
@@ -430,7 +434,7 @@ private struct AddInvoiceSheet: View {
 
     private var customerStep: some View {
         GroupBox("Firma/Kunde") {
-            VStack(spacing: 8) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                 TextField("Name", text: $customerName).modalEditorStyle()
                 TextField("Straße und Hausnummer", text: $customerStreet).modalEditorStyle()
                 TextField("PLZ und Stadt", text: $customerPostalCity).modalEditorStyle()
@@ -986,14 +990,15 @@ private struct ModalSheetContainer<Content: View>: View {
 private extension View {
     func modalEditorStyle() -> some View {
         textFieldStyle(.plain)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
+            .font(.system(size: 17, weight: .medium))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color(nsColor: .textBackgroundColor).opacity(0.7))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(Color.primary.opacity(0.12), lineWidth: 1)
             )
     }

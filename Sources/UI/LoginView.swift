@@ -26,9 +26,10 @@ struct LoginView: View {
 
                 VStack(spacing: 4) {
                     Text("Business Buchhaltung")
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
 
                     Text("Sicher anmelden")
+                        .font(.title3)
                         .foregroundStyle(.secondary)
                 }
 
@@ -61,7 +62,7 @@ struct LoginView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(32)
-            .frame(width: 420)
+            .frame(width: 500)
             .background(.ultraThinMaterial)
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -79,14 +80,15 @@ struct LoginView: View {
 private extension View {
     func loginInputStyle() -> some View {
         textFieldStyle(.plain)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
+            .font(.system(size: 17, weight: .medium))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color(nsColor: .textBackgroundColor).opacity(0.75))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(Color.primary.opacity(0.12), lineWidth: 1)
             )
     }
