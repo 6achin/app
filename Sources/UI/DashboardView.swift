@@ -49,7 +49,7 @@ struct DashboardView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(red: 0.94, green: 0.95, blue: 0.97), Color(red: 0.90, green: 0.92, blue: 0.95)],
+                colors: [Color(red: 0.92, green: 0.94, blue: 0.97), Color(red: 0.86, green: 0.89, blue: 0.94)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -156,7 +156,8 @@ struct DashboardView: View {
 
             Text(viewModel.monthTitle(for: activeMonthStart))
                 .font(.headline.weight(.semibold))
-                .frame(minWidth: 220)
+                 .frame(minWidth: 220)
+                .foregroundStyle(Color(red: 0.16, green: 0.19, blue: 0.25))
 
             Button {
                 selectNextMonth()
@@ -223,11 +224,11 @@ private struct KPIButtonCard: View {
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white)
+                     .fill(Color(red: 0.965, green: 0.972, blue: 0.985))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color(red: 0.76, green: 0.79, blue: 0.84), lineWidth: 1)
+                    .stroke(Color(red: 0.70, green: 0.74, blue: 0.81), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
@@ -1088,11 +1089,11 @@ private struct ModalSheetContainer<Content: View>: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.white)
+                 .fill(Color(red: 0.96, green: 0.968, blue: 0.982))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color(red: 0.77, green: 0.80, blue: 0.85), lineWidth: 1)
+                .stroke(Color(red: 0.68, green: 0.72, blue: 0.79), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 3)
@@ -1116,8 +1117,8 @@ private extension View {
     func closeIconButtonStyle() -> some View {
         buttonStyle(.plain)
             .padding(8)
-            .background(Color(red: 0.92, green: 0.94, blue: 0.97), in: Circle())
-            .overlay(Circle().stroke(Color(red: 0.72, green: 0.76, blue: 0.82), lineWidth: 1))
+             .background(Color(red: 0.88, green: 0.91, blue: 0.96), in: Circle())
+             .overlay(Circle().stroke(Color(red: 0.62, green: 0.67, blue: 0.75), lineWidth: 1))
     }
 
     func modalEditorStyle() -> some View {
@@ -1127,15 +1128,16 @@ private extension View {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.white)
+                     .fill(Color(red: 0.97, green: 0.976, blue: 0.988))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color(red: 0.71, green: 0.75, blue: 0.82), lineWidth: 1)
+                    .stroke(Color(red: 0.66, green: 0.71, blue: 0.79), lineWidth: 1)
             )
     }
 
     func appListStyle() -> some View {
-        listStyle(.inset)
+        scrollContentBackground(.visible)
+            .listStyle(.inset)
     }
 }

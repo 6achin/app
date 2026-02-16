@@ -13,7 +13,7 @@ struct LoginView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(red: 0.94, green: 0.95, blue: 0.97), Color(red: 0.90, green: 0.92, blue: 0.95)],
+                colors: [Color(red: 0.92, green: 0.94, blue: 0.97), Color(red: 0.86, green: 0.89, blue: 0.94)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -75,10 +75,10 @@ struct LoginView: View {
             }
             .padding(28)
             .frame(width: 460)
-            .background(Color.white)
+             .background(Color(red: 0.958, green: 0.966, blue: 0.982))
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color(red: 0.74, green: 0.78, blue: 0.84), lineWidth: 1)
+                    .stroke(Color(red: 0.66, green: 0.71, blue: 0.79), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 3)
@@ -97,11 +97,11 @@ private extension View {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.white)
+                     .fill(Color(red: 0.97, green: 0.976, blue: 0.988))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color(red: 0.71, green: 0.75, blue: 0.82), lineWidth: 1)
+                    .stroke(Color(red: 0.63, green: 0.68, blue: 0.77), lineWidth: 1)
             )
     }
 }
