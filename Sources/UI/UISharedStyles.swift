@@ -43,7 +43,8 @@ struct ModalSheetContainer<Content: View>: View {
                         Image(systemName: "xmark")
                     }
                     .closeIconButtonStyle()
-                    .help("Schließen")
+                    .keyboardShortcut(.cancelAction)
+                    .help("Schließen (Esc)")
                 }
             }
 
@@ -83,8 +84,10 @@ extension View {
         buttonStyle(.plain)
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(AppPalette.textPrimary)
+            .frame(minHeight: 36)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(AppPalette.primaryAction)
@@ -99,8 +102,10 @@ extension View {
         buttonStyle(.plain)
             .font(.system(size: 13, weight: .medium))
             .foregroundStyle(AppPalette.textMuted)
+            .frame(minHeight: 36)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(AppPalette.secondaryAction)
@@ -113,7 +118,8 @@ extension View {
 
     func closeIconButtonStyle() -> some View {
         buttonStyle(.plain)
-            .padding(8)
+            .frame(width: 40, height: 40)
+            .contentShape(Circle())
             .background(AppPalette.closeBackground, in: Circle())
             .overlay(Circle().stroke(AppPalette.closeBorder, lineWidth: 1))
     }
@@ -145,8 +151,10 @@ extension View {
         buttonStyle(.plain)
             .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(AppPalette.textPrimary)
+            .frame(minHeight: 34)
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(AppPalette.inputSurface)
