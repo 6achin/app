@@ -230,6 +230,15 @@ final class DashboardViewModel: ObservableObject {
 
     @Published var kreditUndDarlehenMonatlich: Double = 900
 
+    private var cachedGroupedInvoicesByMonth: [MonthGroup] = []
+    private var cachedAvailableMonths: [Date] = []
+    private var cachedMonthlyStats: [MonthlyStat] = []
+    private var cachedMetricCardsAll: [MetricCard] = []
+    private var cachedMetricCardsByMonth: [Date: [MetricCard]] = [:]
+    private var cachedOpenInvoicesOutgoing: [InvoiceEntry] = []
+    private var cachedOpenInvoicesIncoming: [InvoiceEntry] = []
+    private var cachedPaidOutgoingInvoices: [InvoiceEntry] = []
+
     private let currencyFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
@@ -398,21 +407,59 @@ final class DashboardViewModel: ObservableObject {
     }
 
     var openInvoicesOutgoing: [InvoiceEntry] {
-        invoices.filter { !$0.isPaid && $0.type == .ausgangsrechnung }
+        cachedOpenInvoicesOutgoing
     }
 
     var openInvoicesIncoming: [InvoiceEntry] {
-        invoices.filter { !$0.isPaid && $0.type == .eingangsrechnung }
+        cachedOpenInvoicesIncoming
     }
 
     var paidOutgoingInvoices: [InvoiceEntry] {
-        invoices.filter { $0.isPaid && $0.type == .ausgangsrechnung }.sorted(by: { $0.paidAt ?? $0.issuedAt > $1.paidAt ?? $1.issuedAt })
+        cachedPaidOutgoingInvoices
     }
 
     func groupedInvoicesByMonth() -> [MonthGroup] {
+        cachedGroupedInvoicesByMonth
+    }
+
+    func availableMonths() -> [Date] {
+        cachedAvailableMonths.isEmpty ? [startOfMonth(for: Date())] : cachedAvailableMonths
+    }
+
+    func monthTitle(for monthStart: Date) -> String {
+        monthFormatter.string(from: monthStart).capitalized
+    }
+
+    func monthlyStats() -> [MonthlyStat] {
+        cachedMonthlyStats
+    }
+
+    func metricCards(for monthStart: Date?) -> [MetricCard] {
+        if let monthStart {
+            return cachedMetricCardsByMonth[monthStart] ?? cachedMetricCardsAll
+        }
+        return cachedMetricCardsAll
+    }
+
+    func recalculateAllMetrics() {
+        refreshDerivedData()
+
+        let summary = metricsSummary(for: invoices)
+
+        setCard(type: .umsatz, value: formatCurrency(summary.umsatzNetto), note: "Netto aus Ausgangsrechnungen")
+        setCard(type: .umsatzsteuer, value: formatCurrency(summary.vatPayable), note: "Ausgang \(formatCurrency(summary.outputVat)) - Eingang \(formatCurrency(summary.inputVat))")
+        setCard(type: .rechnungenOffen, value: "\(summary.offeneAusgang + summary.offeneEingang)", note: "Ausgang: \(summary.offeneAusgang) · Eingang: \(summary.offeneEingang)")
+        setCard(type: .einnahmen, value: formatCurrency(summary.einnahmenNettoNachAbzug), note: "nach Steuern, Krediten & Fixkosten")
+        setCard(type: .fixkosten, value: formatCurrency(summary.totalFixkostenBrutto), note: "\(fixkostenEntries.count) Positionen")
+
+        cachedMetricCardsAll = cards
+        persistData()
+    }
+
+    private func refreshDerivedData() {
         let grouped = Dictionary(grouping: invoices) { startOfMonth(for: $0.issuedAt) }
 
-        return grouped
+        cachedGroupedInvoicesByMonth = grouped
             .map { month, entries in
                 MonthGroup(
                     title: monthFormatter.string(from: month).capitalized,
@@ -421,82 +468,59 @@ final class DashboardViewModel: ObservableObject {
                 )
             }
             .sorted { $0.monthStart > $1.monthStart }
-    }
 
-    func availableMonths() -> [Date] {
-        let months = Set(invoices.map { startOfMonth(for: $0.issuedAt) })
-        if months.isEmpty {
-            return [startOfMonth(for: Date())]
-        }
-        return months.sorted(by: >)
-    }
+        cachedAvailableMonths = cachedGroupedInvoicesByMonth.map(\.monthStart)
 
-    func monthTitle(for monthStart: Date) -> String {
-        monthFormatter.string(from: monthStart).capitalized
-    }
+        cachedOpenInvoicesOutgoing = invoices.filter { !$0.isPaid && $0.type == .ausgangsrechnung }
+        cachedOpenInvoicesIncoming = invoices.filter { !$0.isPaid && $0.type == .eingangsrechnung }
+        cachedPaidOutgoingInvoices = invoices
+            .filter { $0.isPaid && $0.type == .ausgangsrechnung }
+            .sorted(by: { $0.paidAt ?? $0.issuedAt > $1.paidAt ?? $1.issuedAt })
 
-    func monthlyStats() -> [MonthlyStat] {
-        let grouped = Dictionary(grouping: invoices) { startOfMonth(for: $0.issuedAt) }
-        return grouped.map { month, entries in
-            let umsatz = entries.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.netAmount }
-            let outputVat = entries.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.vatAmount }
-            let inputVat = entries.filter { $0.type == .eingangsrechnung }.reduce(0) { $0 + $1.vatAmount }
-            let vatPayable = outputVat - inputVat
-            let fixkosten = fixkostenEntries.reduce(0) { $0 + $1.grossAmount }
-            let einnahmen = umsatz - max(vatPayable, 0) - kreditUndDarlehenMonatlich - fixkosten
-            return MonthlyStat(title: monthFormatter.string(from: month).capitalized, monthStart: month, umsatz: umsatz, einnahmen: einnahmen)
-        }
-        .sorted { lhs, rhs in lhs.monthStart > rhs.monthStart }
-    }
-
-    func metricCards(for monthStart: Date?) -> [MetricCard] {
-        let monthFiltered: [InvoiceEntry]
-        if let monthStart {
-            monthFiltered = invoices.filter { startOfMonth(for: $0.issuedAt) == monthStart }
-        } else {
-            monthFiltered = invoices
+        cachedMonthlyStats = cachedGroupedInvoicesByMonth.map { group in
+            let monthlySummary = metricsSummary(for: group.entries)
+            return MonthlyStat(
+                title: group.title,
+                monthStart: group.monthStart,
+                umsatz: monthlySummary.umsatzNetto,
+                einnahmen: monthlySummary.einnahmenNettoNachAbzug
+            )
         }
 
-        let umsatzNetto = monthFiltered.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.netAmount }
-        let outputVat = monthFiltered.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.vatAmount }
-        let inputVat = monthFiltered.filter { $0.type == .eingangsrechnung }.reduce(0) { $0 + $1.vatAmount }
-        let vatPayable = outputVat - inputVat
-        let totalFixkostenBrutto = fixkostenEntries.reduce(0) { $0 + $1.grossAmount }
-        let einnahmenNettoNachAbzug = umsatzNetto - max(vatPayable, 0) - kreditUndDarlehenMonatlich - totalFixkostenBrutto
-        let offeneAusgang = monthFiltered.filter { !$0.isPaid && $0.type == .ausgangsrechnung }.count
-        let offeneEingang = monthFiltered.filter { !$0.isPaid && $0.type == .eingangsrechnung }.count
-
-        return cards.map { card in
-            switch card.type {
-            case .umsatz:
-                return MetricCard(id: card.id, type: .umsatz, value: formatCurrency(umsatzNetto), note: "Netto aus Ausgangsrechnungen")
-            case .umsatzsteuer:
-                return MetricCard(id: card.id, type: .umsatzsteuer, value: formatCurrency(vatPayable), note: "Ausgang \(formatCurrency(outputVat)) - Eingang \(formatCurrency(inputVat))")
-            case .rechnungenOffen:
-                return MetricCard(id: card.id, type: .rechnungenOffen, value: "\(offeneAusgang + offeneEingang)", note: "Ausgang: \(offeneAusgang) · Eingang: \(offeneEingang)")
-            case .einnahmen:
-                return MetricCard(id: card.id, type: .einnahmen, value: formatCurrency(einnahmenNettoNachAbzug), note: "nach Steuern, Krediten & Fixkosten")
-            case .fixkosten:
-                return MetricCard(id: card.id, type: .fixkosten, value: formatCurrency(totalFixkostenBrutto), note: "\(fixkostenEntries.count) Positionen")
+        cachedMetricCardsByMonth = [:]
+        for group in cachedGroupedInvoicesByMonth {
+            let monthlySummary = metricsSummary(for: group.entries)
+            cachedMetricCardsByMonth[group.monthStart] = cards.map { card in
+                switch card.type {
+                case .umsatz:
+                    return MetricCard(id: card.id, type: .umsatz, value: formatCurrency(monthlySummary.umsatzNetto), note: "Netto aus Ausgangsrechnungen")
+                case .umsatzsteuer:
+                    return MetricCard(id: card.id, type: .umsatzsteuer, value: formatCurrency(monthlySummary.vatPayable), note: "Ausgang \(formatCurrency(monthlySummary.outputVat)) - Eingang \(formatCurrency(monthlySummary.inputVat))")
+                case .rechnungenOffen:
+                    return MetricCard(id: card.id, type: .rechnungenOffen, value: "\(monthlySummary.offeneAusgang + monthlySummary.offeneEingang)", note: "Ausgang: \(monthlySummary.offeneAusgang) · Eingang: \(monthlySummary.offeneEingang)")
+                case .einnahmen:
+                    return MetricCard(id: card.id, type: .einnahmen, value: formatCurrency(monthlySummary.einnahmenNettoNachAbzug), note: "nach Steuern, Krediten & Fixkosten")
+                case .fixkosten:
+                    return MetricCard(id: card.id, type: .fixkosten, value: formatCurrency(monthlySummary.totalFixkostenBrutto), note: "\(fixkostenEntries.count) Positionen")
+                }
             }
         }
+
+        if cachedMetricCardsAll.isEmpty {
+            cachedMetricCardsAll = cards
+        }
     }
 
-    func recalculateAllMetrics() {
-        let umsatzNetto = invoices.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.netAmount }
-        let outputVat = invoices.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.vatAmount }
-        let inputVat = invoices.filter { $0.type == .eingangsrechnung }.reduce(0) { $0 + $1.vatAmount }
+    private func metricsSummary(for entries: [InvoiceEntry]) -> (umsatzNetto: Double, outputVat: Double, inputVat: Double, vatPayable: Double, totalFixkostenBrutto: Double, einnahmenNettoNachAbzug: Double, offeneAusgang: Int, offeneEingang: Int) {
+        let umsatzNetto = entries.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.netAmount }
+        let outputVat = entries.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.vatAmount }
+        let inputVat = entries.filter { $0.type == .eingangsrechnung }.reduce(0) { $0 + $1.vatAmount }
         let vatPayable = outputVat - inputVat
         let totalFixkostenBrutto = fixkostenEntries.reduce(0) { $0 + $1.grossAmount }
         let einnahmenNettoNachAbzug = umsatzNetto - max(vatPayable, 0) - kreditUndDarlehenMonatlich - totalFixkostenBrutto
-
-        setCard(type: .umsatz, value: formatCurrency(umsatzNetto), note: "Netto aus Ausgangsrechnungen")
-        setCard(type: .umsatzsteuer, value: formatCurrency(vatPayable), note: "Ausgang \(formatCurrency(outputVat)) - Eingang \(formatCurrency(inputVat))")
-        setCard(type: .rechnungenOffen, value: "\(openInvoicesOutgoing.count + openInvoicesIncoming.count)", note: "Ausgang: \(openInvoicesOutgoing.count) · Eingang: \(openInvoicesIncoming.count)")
-        setCard(type: .einnahmen, value: formatCurrency(einnahmenNettoNachAbzug), note: "nach Steuern, Krediten & Fixkosten")
-        setCard(type: .fixkosten, value: formatCurrency(totalFixkostenBrutto), note: "\(fixkostenEntries.count) Positionen")
-
-        persistData()
+        let offeneAusgang = entries.filter { !$0.isPaid && $0.type == .ausgangsrechnung }.count
+        let offeneEingang = entries.filter { !$0.isPaid && $0.type == .eingangsrechnung }.count
+        return (umsatzNetto, outputVat, inputVat, vatPayable, totalFixkostenBrutto, einnahmenNettoNachAbzug, offeneAusgang, offeneEingang)
     }
 
     private var persistenceURL: URL {

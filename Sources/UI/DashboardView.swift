@@ -27,6 +27,7 @@ struct DashboardView: View {
     @State private var showAddInvoiceSheet = false
     @State private var selectedMonthStart: Date?
     @State private var showClearDataAlert = false
+    @State private var didInitialRefresh = false
 
     private let cardColumns = [GridItem(.adaptive(minimum: 250), spacing: 14)]
 
@@ -70,17 +71,17 @@ struct DashboardView: View {
                     } label: {
                         Label("Hinzufügen", systemImage: "plus")
                     }
-                    .buttonStyle(.borderedProminent)
+                    .appPrimaryButtonStyle()
                     .keyboardShortcut("n", modifiers: [.command])
                     .help("Neue Rechnung hinzufügen (⌘N)")
 
                     Button("Abmelden", action: onLogout)
-                        .buttonStyle(.bordered)
+                        .appSecondaryButtonStyle()
 
                     Button("Alle Daten löschen", role: .destructive) {
                         showClearDataAlert = true
                     }
-                    .buttonStyle(.bordered)
+                    .appSecondaryButtonStyle()
                 }
 
                 monthNavigation
@@ -127,6 +128,8 @@ struct DashboardView: View {
             if selectedMonthStart == nil {
                 selectedMonthStart = availableMonths.first
             }
+            guard !didInitialRefresh else { return }
+            didInitialRefresh = true
             viewModel.recalculateAllMetrics()
         }
         .alert("Alle Daten wirklich löschen?", isPresented: $showClearDataAlert) {
@@ -147,7 +150,7 @@ struct DashboardView: View {
             } label: {
                 Image(systemName: "chevron.left")
             }
-            .buttonStyle(.bordered)
+            .appSecondaryButtonStyle()
             .disabled(!canSelectPreviousMonth)
 
             Text(viewModel.monthTitle(for: activeMonthStart))
@@ -159,7 +162,7 @@ struct DashboardView: View {
             } label: {
                 Image(systemName: "chevron.right")
             }
-            .buttonStyle(.bordered)
+            .appSecondaryButtonStyle()
             .disabled(!canSelectNextMonth)
         }
         .contentShape(Rectangle())
@@ -428,7 +431,7 @@ private struct AddInvoiceSheet: View {
                         viewModel.addInvoice(invoice)
                         dismiss()
                     }
-                    .buttonStyle(.borderedProminent)
+                    .appPrimaryButtonStyle()
                     .disabled(isSaveDisabled)
                 }
             }
@@ -687,18 +690,18 @@ private struct OffeneRechnungenSheet: View {
                 Button("PDF") {
                     viewModel.openStoredPDF(for: invoice)
                 }
-                .buttonStyle(.bordered)
+                .appSecondaryButtonStyle()
             }
             if invoice.type == .ausgangsrechnung, !invoice.isPaid, invoice.customerPhone != nil {
                 Button("WhatsApp") {
                     viewModel.openWhatsAppReminder(for: invoice)
                 }
-                .buttonStyle(.bordered)
+                .appSecondaryButtonStyle()
             }
             Button("Als bezahlt") {
                 viewModel.markInvoicePaid(id: invoice.id)
             }
-            .buttonStyle(.bordered)
+            .appSecondaryButtonStyle()
         }
         .textSelection(.enabled)
     }
@@ -809,14 +812,14 @@ private struct FixkostenSheet: View {
                     } label: {
                         Label("Hinzufügen", systemImage: "plus")
                     }
-                    .buttonStyle(.borderedProminent)
+                    .appPrimaryButtonStyle()
 
                     Button {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
                     }
-                    .buttonStyle(.bordered)
+                    .closeIconButtonStyle()
                     .help("Schließen")
                 }
 
@@ -1041,7 +1044,7 @@ private struct FixkostenFormContent: View {
                 Spacer()
                 Button("Abbrechen", role: .cancel, action: onCancel)
                 Button("Speichern", action: onSave)
-                    .buttonStyle(.borderedProminent)
+                    .appPrimaryButtonStyle()
                     .disabled(isSaveDisabled)
             }
         }
@@ -1064,9 +1067,7 @@ private struct ModalSheetContainer<Content: View>: View {
                     Button(action: onClose) {
                         Image(systemName: "xmark")
                     }
-                    .buttonStyle(.plain)
-                    .padding(8)
-                    .background(Color.primary.opacity(0.08), in: Circle())
+                    .closeIconButtonStyle()
                     .help("Schließen")
                 }
             }
@@ -1084,6 +1085,22 @@ private struct ModalSheetContainer<Content: View>: View {
 }
 
 private extension View {
+    func appPrimaryButtonStyle() -> some View {
+        buttonStyle(.borderedProminent)
+            .controlSize(.regular)
+    }
+
+    func appSecondaryButtonStyle() -> some View {
+        buttonStyle(.bordered)
+            .controlSize(.regular)
+    }
+
+    func closeIconButtonStyle() -> some View {
+        buttonStyle(.plain)
+            .padding(8)
+            .background(Color.primary.opacity(0.08), in: Circle())
+    }
+
     func modalEditorStyle() -> some View {
         textFieldStyle(.plain)
             .font(.system(size: 16, weight: .medium))
