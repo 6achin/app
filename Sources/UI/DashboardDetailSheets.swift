@@ -10,6 +10,10 @@ struct OffeneRechnungenSheet: View {
     var body: some View {
         ModalSheetContainer(title: "Rechnungen offen", onClose: { dismiss() }) {
 
+            Text("Doppelklick auf eine Rechnungszeile zum Bearbeiten.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
             Text("Ausgangsrechnungen")
                 .font(.headline)
             List(viewModel.openInvoicesOutgoing) { invoice in
@@ -82,11 +86,6 @@ struct OffeneRechnungenSheet: View {
                 }
                 .appSecondaryButtonStyle()
             }
-            Button("Bearbeiten") {
-                editingInvoice = invoice
-            }
-            .appSecondaryButtonStyle()
-
             Button("Als bezahlt") {
                 viewModel.markInvoicePaid(id: invoice.id)
             }
@@ -101,6 +100,10 @@ struct OffeneRechnungenSheet: View {
             .help("Rechnung löschen")
         }
         .textSelection(.enabled)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            editingInvoice = invoice
+        }
     }
 }
 
@@ -201,51 +204,132 @@ private struct EditInvoiceSheet: View {
 
     let invoice: InvoiceEntry
 
+    @State private var source: InvoiceSource
+    @State private var type: InvoiceType
     @State private var title: String
+    @State private var referenceNumber: String
     @State private var invoiceNumber: String
+    @State private var customerNumber: String
+    @State private var ustIdNr: String
+    @State private var taxNumber: String
     @State private var customerName: String
+    @State private var customerAddress: String
+    @State private var customerPhone: String
     @State private var netInput: String
     @State private var vatRate: Double
     @State private var issuedAt: Date
+    @State private var paymentTermDaysInput: String
+    @State private var paymentTermsText: String
+
+    private let columns: [GridItem] = [
+        GridItem(.flexible(), spacing: 12, alignment: .top),
+        GridItem(.flexible(), spacing: 12, alignment: .top)
+    ]
 
     init(viewModel: DashboardViewModel, invoice: InvoiceEntry) {
         self.viewModel = viewModel
         self.invoice = invoice
+        _source = State(initialValue: invoice.source)
+        _type = State(initialValue: invoice.type)
         _title = State(initialValue: invoice.title)
+        _referenceNumber = State(initialValue: invoice.referenceNumber ?? "")
         _invoiceNumber = State(initialValue: invoice.invoiceNumber ?? "")
+        _customerNumber = State(initialValue: invoice.customerNumber ?? "")
+        _ustIdNr = State(initialValue: invoice.ustIdNr ?? "")
+        _taxNumber = State(initialValue: invoice.taxNumber ?? "")
         _customerName = State(initialValue: invoice.customerName ?? "")
+        _customerAddress = State(initialValue: invoice.customerAddress ?? "")
+        _customerPhone = State(initialValue: invoice.customerPhone ?? "")
         _netInput = State(initialValue: String(format: "%.2f", invoice.netAmount).replacingOccurrences(of: ".", with: ","))
         _vatRate = State(initialValue: invoice.vatRate)
         _issuedAt = State(initialValue: invoice.issuedAt)
+        _paymentTermDaysInput = State(initialValue: invoice.paymentTermDays.map(String.init) ?? "")
+        _paymentTermsText = State(initialValue: invoice.paymentTermsText ?? "")
     }
 
     private var netAmount: Double {
         Double(netInput.replacingOccurrences(of: ",", with: ".")) ?? 0
     }
 
+    private var paymentTermDays: Int? {
+        let trimmed = paymentTermDaysInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : Int(trimmed)
+    }
+
     var body: some View {
         ModalSheetContainer(title: "Rechnung bearbeiten", onClose: { dismiss() }) {
-            VStack(alignment: .leading, spacing: 10) {
-                TextField("Bezeichnung", text: $title)
-                    .modalEditorStyle()
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    Picker("Quelle", selection: $source) {
+                        ForEach(InvoiceSource.allCases) { value in
+                            Text(value.rawValue).tag(value)
+                        }
+                    }
+                    .appSegmentedStyle()
 
-                TextField("Rechnungs-Nr.", text: $invoiceNumber)
-                    .modalEditorStyle()
-
-                TextField("Kunde", text: $customerName)
-                    .modalEditorStyle()
-
-                DatePicker("Rechnungsdatum", selection: $issuedAt, displayedComponents: .date)
-
-                TextField("Netto", text: $netInput)
-                    .modalEditorStyle()
-
-                Picker("MwSt", selection: $vatRate) {
-                    Text("19%").tag(0.19)
-                    Text("7%").tag(0.07)
-                    Text("0%").tag(0.0)
+                    Picker("Typ", selection: $type) {
+                        ForEach(InvoiceType.allCases) { value in
+                            Text(value.rawValue).tag(value)
+                        }
+                    }
+                    .appSegmentedStyle()
                 }
-                .appSegmentedStyle()
+
+                GroupBox("Rechnungsdaten") {
+                    LazyVGrid(columns: columns, spacing: 10) {
+                        TextField("Bezeichnung", text: $title)
+                            .modalEditorStyle()
+                        TextField("Bezug", text: $referenceNumber)
+                            .modalEditorStyle()
+
+                        TextField("Rechnungs-Nr.", text: $invoiceNumber)
+                            .modalEditorStyle()
+                        DatePicker("Rechnungsdatum", selection: $issuedAt, displayedComponents: .date)
+
+                        TextField("Kunden-Nr.", text: $customerNumber)
+                            .modalEditorStyle()
+                        TextField("USt-IdNr.", text: $ustIdNr)
+                            .modalEditorStyle()
+
+                        TextField("Steuernummer", text: $taxNumber)
+                            .modalEditorStyle()
+                            .gridCellColumns(2)
+                    }
+                }
+                .appFormGroupStyle()
+
+                GroupBox("Kunde") {
+                    VStack(spacing: 10) {
+                        TextField("Name", text: $customerName)
+                            .modalEditorStyle()
+                        TextField("Adresse", text: $customerAddress)
+                            .modalEditorStyle()
+                        TextField("Telefon", text: $customerPhone)
+                            .modalEditorStyle()
+                    }
+                }
+                .appFormGroupStyle()
+
+                GroupBox("Betrag & Zahlung") {
+                    VStack(spacing: 10) {
+                        TextField("Netto", text: $netInput)
+                            .modalEditorStyle()
+
+                        Picker("MwSt", selection: $vatRate) {
+                            Text("19%").tag(0.19)
+                            Text("7%").tag(0.07)
+                            Text("0%").tag(0.0)
+                        }
+                        .appSegmentedStyle()
+
+                        TextField("Zahlungsbedingungen", text: $paymentTermsText)
+                            .modalEditorStyle()
+
+                        TextField("Tage bis Fälligkeit", text: $paymentTermDaysInput)
+                            .modalEditorStyle()
+                    }
+                }
+                .appFormGroupStyle()
 
                 HStack {
                     Spacer()
@@ -253,12 +337,22 @@ private struct EditInvoiceSheet: View {
                         .appSecondaryButtonStyle()
                     Button("Speichern") {
                         var updated = invoice
+                        updated.source = source
+                        updated.type = type
                         updated.title = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? invoice.title : title
+                        updated.referenceNumber = referenceNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : referenceNumber
                         updated.invoiceNumber = invoiceNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : invoiceNumber
+                        updated.customerNumber = customerNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : customerNumber
+                        updated.ustIdNr = ustIdNr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : ustIdNr
+                        updated.taxNumber = taxNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : taxNumber
                         updated.customerName = customerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : customerName
+                        updated.customerAddress = customerAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : customerAddress
+                        updated.customerPhone = viewModel.normalizedPhoneForMessaging(customerPhone)
                         updated.netAmount = max(0, netAmount)
                         updated.vatRate = vatRate
                         updated.issuedAt = issuedAt
+                        updated.paymentTermsText = paymentTermsText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : paymentTermsText
+                        updated.paymentTermDays = paymentTermDays
                         viewModel.updateInvoice(updated)
                         dismiss()
                     }
@@ -267,6 +361,6 @@ private struct EditInvoiceSheet: View {
                 }
             }
         }
-        .frame(minWidth: 560)
+        .frame(minWidth: 720)
     }
 }
