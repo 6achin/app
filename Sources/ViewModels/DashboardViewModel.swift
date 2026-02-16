@@ -552,24 +552,32 @@ final class DashboardViewModel: ObservableObject {
             .filter { !$0.isEmpty }
 
         guard let labelRegex = try? NSRegularExpression(pattern: labelPattern, options: [.caseInsensitive])
+        , let inlineLabelValueRegex = try? NSRegularExpression(
+            pattern: "(?:\(labelPattern))\\s*:?\\s*(\(valuePattern))",
+            options: [.caseInsensitive]
+        )
+        , let bareValueRegex = try? NSRegularExpression(
+            pattern: "(\(valuePattern))",
+            options: [.caseInsensitive]
+        )
         else { return nil }
 
         for (index, line) in lines.enumerated() {
             let lineRange = NSRange(line.startIndex..., in: line)
             guard labelRegex.firstMatch(in: line, options: [], range: lineRange) != nil else { continue }
 
-            if let value = firstMatch(in: line, pattern: "(?:\(labelPattern))\\s*:?\\s*(\(valuePattern))"),
+            if let value = firstMatch(in: line, regex: inlineLabelValueRegex),
                isLikelyValue(value) {
                 return value
             }
 
-            if let sameLineValue = firstMatch(in: line, pattern: "(\(valuePattern))"),
+            if let sameLineValue = firstMatch(in: line, regex: bareValueRegex),
                isLikelyValue(sameLineValue) {
                 return sameLineValue
             }
 
             if index + 1 < lines.count,
-               let nextLineValue = firstMatch(in: lines[index + 1], pattern: "(\(valuePattern))"),
+               let nextLineValue = firstMatch(in: lines[index + 1], regex: bareValueRegex),
                isLikelyValue(nextLineValue) {
                 return nextLineValue
             }
@@ -602,6 +610,10 @@ final class DashboardViewModel: ObservableObject {
 
     private func firstMatch(in text: String, pattern: String) -> String? {
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return nil }
+        return firstMatch(in: text, regex: regex)
+    }
+
+    private func firstMatch(in text: String, regex: NSRegularExpression) -> String? {
         let range = NSRange(text.startIndex..., in: text)
         guard let match = regex.firstMatch(in: text, options: [], range: range), match.numberOfRanges > 1,
               let valueRange = Range(match.range(at: 1), in: text) else { return nil }

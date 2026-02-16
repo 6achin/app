@@ -272,6 +272,22 @@ private struct AddInvoiceSheet: View {
         Double(grossInput.replacingOccurrences(of: ",", with: ".")) ?? 0
     }
 
+    private var vatAmountCalculated: Double {
+        max(0, netAmount * vatRate)
+    }
+
+    private var grossAmountCalculated: Double {
+        max(0, netAmount + vatAmountCalculated)
+    }
+
+    private var grossCalculatedText: String {
+        String(format: "%.2f", grossAmountCalculated).replacingOccurrences(of: ".", with: ",")
+    }
+
+    private var vatCalculatedText: String {
+        String(format: "%.2f", vatAmountCalculated).replacingOccurrences(of: ".", with: ",")
+    }
+
     private var customerAddress: String? {
         let joined = [customerStreet, customerPostalCity]
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -434,7 +450,39 @@ private struct AddInvoiceSheet: View {
                         Text("0%").tag(0.0)
                     }
                     .pickerStyle(.segmented)
-                    TextField("Gesamtbetrag", text: $grossInput).modalEditorStyle()
+
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Steuer")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("€ \(vatCalculatedText)")
+                                .font(.headline.weight(.semibold))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                        .background(Color.primary.opacity(0.04))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Brutto")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("€ \(grossCalculatedText)")
+                                .font(.headline.weight(.semibold))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                        .background(Color.primary.opacity(0.04))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+
+                    TextField("Gesamtbetrag (auto)", text: $grossInput)
+                        .modalEditorStyle()
+                        .disabled(true)
+                        .onAppear { grossInput = grossCalculatedText }
+                        .onChange(of: netInput) { _ in grossInput = grossCalculatedText }
+                        .onChange(of: vatRate) { _ in grossInput = grossCalculatedText }
                 }
             }
 
