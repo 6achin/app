@@ -112,13 +112,18 @@ struct DebtFormModal: View {
     @State private var notes = ""
     @State private var attachmentLink = ""
 
+    init(store: DebtsStore, editingID: UUID? = nil) {
+        _store = ObservedObject(wrappedValue: store)
+        self.editingID = editingID
+    }
+
     var body: some View {
         AppShell {
             VStack(alignment: .leading, spacing: 10) {
                 HStack { Text(editingID == nil ? "Schuld hinzufügen" : "Schuld bearbeiten").font(.headline); Spacer(); Button("✕") { dismiss() }.dsSecondaryButton() }
                 DSCard {
                     VStack(spacing: 10) {
-                        Picker("Richtung", selection: $direction) { ForEach(DebtItem.Direction.allCases) { Text($0.rawValue).tag($0) } }.pickerStyle(.menu)
+                        Picker("Richtung", selection: $direction) { ForEach(DebtItem.Direction.allCases, id: \.self) { Text($0.rawValue).tag($0) } }.pickerStyle(.menu)
                         TextField("Gegenpartei", text: $counterparty).dsInput()
                         HStack { TextField("Betrag", text: $amount).dsInput(); TextField("Währung", text: $currency).dsInput() }
                         HStack { DatePicker("Von", selection: $startDate, displayedComponents: .date); DatePicker("Bis", selection: $dueDate, displayedComponents: .date) }
@@ -126,7 +131,7 @@ struct DebtFormModal: View {
                         if interestEnabled { TextField("Zinssatz %", text: $interestRate).dsInput() }
                         Toggle("Mit Steuer", isOn: $taxIncluded)
                         TextField("Monatsrate (optional)", text: $monthlyAmount).dsInput()
-                        Picker("Status", selection: $status) { ForEach(DebtItem.Status.allCases) { Text($0.rawValue).tag($0) } }.pickerStyle(.menu)
+                        Picker("Status", selection: $status) { ForEach(DebtItem.Status.allCases, id: \.self) { Text($0.rawValue).tag($0) } }.pickerStyle(.menu)
                         TextField("Notizen", text: $notes).dsInput()
                         TextField("PDF/Anhang Link", text: $attachmentLink).dsInput()
                         HStack { Spacer(); Button("Abbrechen") { dismiss() }.dsSecondaryButton(); Button("Speichern") { save() }.dsPrimaryButton() }
