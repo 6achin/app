@@ -4,6 +4,12 @@ struct AppRootView: View {
     @ObservedObject var auth: AuthViewModel
     @StateObject private var router = BAAppRouter()
     @StateObject private var dashboard = DashboardViewModel()
+    @StateObject private var debtsStore = DebtsStore()
+    @AppStorage("uiDensityMode") private var densityRaw = UIDensityMode.comfortable.rawValue
+
+    private var density: UIDensityMode {
+        UIDensityMode(rawValue: densityRaw) ?? .comfortable
+    }
 
     var body: some View {
         Group {
@@ -14,6 +20,7 @@ struct AppRootView: View {
                             routeView(route)
                         }
                 }
+                .environment(\.uiDensityMode, density)
                 .toolbar {
                     ToolbarItem(placement: .automatic) {
                         Picker("Bereich", selection: Binding(
@@ -25,7 +32,16 @@ struct AppRootView: View {
                             }
                         }
                         .pickerStyle(.segmented)
-                        .frame(width: 640)
+                        .frame(width: 560)
+                    }
+                    ToolbarItem(placement: .automatic) {
+                        Picker("Dichte", selection: $densityRaw) {
+                            ForEach(UIDensityMode.allCases) { mode in
+                                Text(mode.label).tag(mode.rawValue)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 220)
                     }
                     ToolbarItem(placement: .automatic) {
                         Button("Abmelden") { auth.logout() }
@@ -51,13 +67,13 @@ struct AppRootView: View {
         case .addInvoice:
             AddInvoicePage(router: router, viewModel: dashboard)
         case .debts:
-            DebtsPage(router: router)
+            DebtsPage(router: router, store: debtsStore)
         case .debtDetail(let id):
-            DebtDetailPage(router: router, debtID: id)
+            DebtDetailPage(router: router, store: debtsStore, debtID: id)
         case .addDebt:
-            DebtEditPage(router: router, mode: .add)
+            DebtEditPage(router: router, store: debtsStore, mode: .add)
         case .editDebt(let id):
-            DebtEditPage(router: router, mode: .edit(id))
+            DebtEditPage(router: router, store: debtsStore, mode: .edit(id))
         case .vatOverview:
             VATOverviewPage(router: router, viewModel: dashboard)
         case .revenueByMonth:

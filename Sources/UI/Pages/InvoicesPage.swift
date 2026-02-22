@@ -3,10 +3,18 @@ import SwiftUI
 struct InvoicesPage: View {
     @ObservedObject var router: BAAppRouter
     @ObservedObject var viewModel: DashboardViewModel
-    @State private var search = ""
+    @Environment(\.uiDensityMode) private var density
 
-    private var baseFiltered: [InvoiceEntry] {
-        let text = search.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    @State private var search = ""
+    @State private var debouncedSearch = ""
+
+    @State private var showAddress = true
+    @State private var showContact = true
+    @State private var showCreated = true
+    @State private var showPaid = true
+
+    private var filtered: [InvoiceEntry] {
+        let text = debouncedSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
         return viewModel.invoices.filter { invoice in
             if let month = router.invoiceMonthFilter,
@@ -24,37 +32,51 @@ struct InvoicesPage: View {
             }
 
             guard !text.isEmpty else { return true }
-            let haystack = [
-                invoice.title,
-                invoice.invoiceNumber ?? "",
-                invoice.customerName ?? "",
-                invoice.customerAddress ?? "",
-                invoice.customerPhone ?? ""
-            ].joined(separator: " ").lowercased()
-            return haystack.contains(text)
+            let value = [invoice.invoiceNumber ?? "", invoice.customerName ?? "", invoice.customerAddress ?? "", invoice.customerPhone ?? "", invoice.title]
+                .joined(separator: " ")
+                .lowercased()
+            return value.contains(text)
         }
     }
 
     private var monthlyOpenRows: [MonthlyOpenRow] {
         let grouped = Dictionary(grouping: viewModel.invoices) { viewModel.startOfMonth(for: $0.issuedAt) }
-
         return grouped.keys.sorted(by: >).map { month in
             let entries = grouped[month] ?? []
-            let open = entries.filter { !$0.isPaid }
-            let paid = entries.filter { $0.isPaid }
-            let total = entries.reduce(0) { $0 + $1.grossAmount }
-            return MonthlyOpenRow(monthStart: month, totalCount: entries.count, totalAmount: total, openCount: open.count, paidCount: paid.count)
+            return MonthlyOpenRow(
+                monthStart: month,
+                totalCount: entries.count,
+                totalAmount: entries.reduce(0) { $0 + $1.grossAmount },
+                openCount: entries.filter { !$0.isPaid }.count,
+                paidCount: entries.filter { $0.isPaid }.count
+            )
         }
     }
 
     var body: some View {
         AppShell {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: density.spacing) {
                 PageHeader(title: "Rechnungen", subtitle: "Liste", onBack: { router.setTop(.dashboard) })
 
-                HStack {
-                    TextField("Suche", text: $search).dsInput()
-                    Button("Neue Rechnung") { router.push(.addInvoice) }.dsPrimaryButton()
+                HStack(spacing: 8) {
+                    TextField("Suche", text: $search)
+                        .dsInput()
+                        .task(id: search) {
+                            try? await Task.sleep(nanoseconds: 250_000_000)
+                            guard !Task.isCancelled else { return }
+                            debouncedSearch = search
+                        }
+
+                    Menu("Columns") {
+                        Toggle("Adresse", isOn: $showAddress)
+                        Toggle("Kontakt", isOn: $showContact)
+                        Toggle("Erstellt", isOn: $showCreated)
+                        Toggle("Bezahlt", isOn: $showPaid)
+                    }
+                    .dsSecondaryButton()
+
+                    Button("Neue Rechnung") { router.push(.addInvoice) }
+                        .dsPrimaryButton()
                 }
 
                 HStack(spacing: 8) {
@@ -73,7 +95,8 @@ struct InvoicesPage: View {
                     invoicesTable
                 }
             }
-            .padding(18)
+            .padding(density == .compact ? 14 : 20)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
     }
 
@@ -82,13 +105,12 @@ struct InvoicesPage: View {
             VStack(spacing: 0) {
                 HStack {
                     Text("Monat (YYYY-MM)").frame(maxWidth: .infinity, alignment: .leading)
-                    Text("Rechnungen").frame(width: 100, alignment: .trailing)
+                    Text("Rechnungen").frame(width: 110, alignment: .trailing)
                     Text("Summe").frame(width: 140, alignment: .trailing)
                     Text("Offen / Bezahlt").frame(width: 150, alignment: .trailing)
                 }
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
-                .padding(.bottom, 8)
 
                 ForEach(monthlyOpenRows) { row in
                     Button {
@@ -96,13 +118,13 @@ struct InvoicesPage: View {
                     } label: {
                         HStack {
                             Text(row.label).frame(maxWidth: .infinity, alignment: .leading)
-                            Text("\(row.totalCount)").frame(width: 100, alignment: .trailing)
+                            Text("\(row.totalCount)").frame(width: 110, alignment: .trailing)
                             Text(viewModel.formatCurrency(row.totalAmount)).frame(width: 140, alignment: .trailing)
                             Text("\(row.openCount) / \(row.paidCount)").frame(width: 150, alignment: .trailing)
                         }
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.textPrimary)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, density.rowPadding)
                     }
                     .buttonStyle(.plain)
 
@@ -113,11 +135,14 @@ struct InvoicesPage: View {
     }
 
     private var invoicesTable: some View {
-        ScrollView {
-            LazyVStack(spacing: 8) {
-                tableHeader
-                ForEach(baseFiltered) { invoice in
-                    invoiceRow(invoice)
+        VStack(spacing: 8) {
+            tableHeader
+
+            ScrollView([.vertical, .horizontal]) {
+                LazyVStack(spacing: 8) {
+                    ForEach(filtered) { invoice in
+                        invoiceRow(invoice)
+                    }
                 }
             }
         }
@@ -126,16 +151,16 @@ struct InvoicesPage: View {
     private var tableHeader: some View {
         DSCard {
             HStack(spacing: 10) {
-                Text("Nr.").frame(width: 90, alignment: .leading)
-                Text("Name").frame(width: 140, alignment: .leading)
-                Text("Adresse").frame(width: 180, alignment: .leading)
-                Text("Kontakt").frame(width: 120, alignment: .leading)
+                Text("Nr").frame(width: 90, alignment: .leading)
+                Text("Name").frame(width: 160, alignment: .leading)
+                if showAddress { Text("Adresse").frame(width: 190, alignment: .leading) }
+                if showContact { Text("Kontakt").frame(width: 130, alignment: .leading) }
                 Text("Betrag").frame(width: 110, alignment: .trailing)
-                Text("Frist").frame(width: 120, alignment: .leading)
-                Text("Erstellt").frame(width: 90, alignment: .leading)
-                Text("Bezahlt").frame(width: 90, alignment: .leading)
-                Text("Status").frame(width: 70, alignment: .leading)
-                Text("PDF").frame(width: 54, alignment: .center)
+                Text("Frist").frame(width: 110, alignment: .leading)
+                if showCreated { Text("Erstellt").frame(width: 90, alignment: .leading) }
+                if showPaid { Text("Bezahlt").frame(width: 90, alignment: .leading) }
+                Text("Status").frame(width: 78, alignment: .leading)
+                Text("PDF").frame(width: 56, alignment: .center)
             }
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(Theme.textSecondary)
@@ -143,41 +168,40 @@ struct InvoicesPage: View {
     }
 
     private func invoiceRow(_ invoice: InvoiceEntry) -> some View {
-        let dueLabel = viewModel.dueDate(for: invoice)?.formatted(date: .numeric, time: .omitted) ?? "-"
-        let paidLabel = invoice.paidAt?.formatted(date: .numeric, time: .omitted) ?? "-"
-        let createdLabel = invoice.issuedAt.formatted(date: .numeric, time: .omitted)
-        let address = (invoice.customerAddress ?? "-").replacingOccurrences(of: "\n", with: ", ")
-        let contact = invoice.customerPhone ?? "-"
+        let due = viewModel.dueDate(for: invoice)?.formatted(date: .numeric, time: .omitted) ?? "-"
+        let created = invoice.issuedAt.formatted(date: .numeric, time: .omitted)
+        let paid = invoice.paidAt?.formatted(date: .numeric, time: .omitted) ?? "-"
+        let statusText = invoice.isPaid ? "Bezahlt" : (viewModel.dueState(for: invoice) == "overdue" ? "Überfällig" : "Offen")
+        let statusColor = invoice.isPaid ? Theme.success : (viewModel.dueState(for: invoice) == "overdue" ? Theme.danger : Theme.textSecondary)
 
         return DSCard {
             HStack(spacing: 10) {
                 HStack(spacing: 10) {
                     Text(invoice.invoiceNumber ?? "-").frame(width: 90, alignment: .leading)
-                    Text(invoice.customerName ?? invoice.title).frame(width: 140, alignment: .leading)
-                    Text(address).lineLimit(1).frame(width: 180, alignment: .leading)
-                    Text(contact).lineLimit(1).frame(width: 120, alignment: .leading)
+                    Text(invoice.customerName ?? invoice.title).lineLimit(1).frame(width: 160, alignment: .leading)
+                    if showAddress {
+                        Text((invoice.customerAddress ?? "-").replacingOccurrences(of: "\n", with: ", ")).lineLimit(1).frame(width: 190, alignment: .leading)
+                    }
+                    if showContact {
+                        Text(invoice.customerPhone ?? "-").lineLimit(1).frame(width: 130, alignment: .leading)
+                    }
                     Text(viewModel.formatCurrency(invoice.grossAmount)).monospacedDigit().frame(width: 110, alignment: .trailing)
-                    Text(dueLabel).frame(width: 120, alignment: .leading)
-                    Text(createdLabel).frame(width: 90, alignment: .leading)
-                    Text(paidLabel).frame(width: 90, alignment: .leading)
-                    Text(invoice.isPaid ? "Bezahlt" : "Offen")
-                        .foregroundStyle(invoice.isPaid ? Theme.success : Theme.danger)
-                        .frame(width: 70, alignment: .leading)
+                    Text(due).frame(width: 110, alignment: .leading)
+                    if showCreated { Text(created).frame(width: 90, alignment: .leading) }
+                    if showPaid { Text(paid).frame(width: 90, alignment: .leading) }
+                    Text(statusText).foregroundStyle(statusColor).frame(width: 78, alignment: .leading)
                 }
                 .contentShape(Rectangle())
-                .onTapGesture {
-                    router.push(.invoiceDetail(invoice.id))
-                }
+                .onTapGesture { router.push(.invoiceDetail(invoice.id)) }
 
-                Button("PDF") {
-                    viewModel.openStoredPDF(for: invoice)
-                }
-                .dsSecondaryButton()
-                .frame(width: 54)
-                .disabled(invoice.pdfStoredFileName == nil)
+                Button("PDF") { viewModel.openStoredPDF(for: invoice) }
+                    .dsSecondaryButton()
+                    .frame(width: 56)
+                    .disabled(invoice.pdfStoredFileName == nil)
             }
             .font(.system(size: 12))
             .foregroundStyle(Theme.textPrimary)
+            .padding(.vertical, density == .compact ? 0 : 2)
         }
     }
 
