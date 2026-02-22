@@ -1,0 +1,75 @@
+import SwiftUI
+
+struct AppRootView: View {
+    @ObservedObject var auth: AuthViewModel
+    @StateObject private var router = BAAppRouter()
+    @StateObject private var dashboard = DashboardViewModel()
+
+    var body: some View {
+        Group {
+            if auth.isAuthenticated {
+                NavigationStack(path: $router.path) {
+                    routeView(router.path.first ?? .dashboard)
+                        .navigationDestination(for: BAAppRoute.self) { route in
+                            routeView(route)
+                        }
+                }
+                .toolbar {
+                    ToolbarItem(placement: .automatic) {
+                        Picker("Bereich", selection: Binding(
+                            get: { router.top },
+                            set: { router.setTop($0) }
+                        )) {
+                            ForEach(BATopDestination.allCases) { item in
+                                Text(item.rawValue).tag(item)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 640)
+                    }
+                    ToolbarItem(placement: .automatic) {
+                        Button("Abmelden") { auth.logout() }
+                    }
+                }
+                .preferredColorScheme(.light)
+            } else {
+                LoginPage(viewModel: auth)
+            }
+        }
+        .frame(minWidth: 1100, minHeight: 700)
+    }
+
+    @ViewBuilder
+    private func routeView(_ route: BAAppRoute) -> some View {
+        switch route {
+        case .dashboard:
+            DashboardPage(router: router, viewModel: dashboard)
+        case .invoices:
+            InvoicesPage(router: router, viewModel: dashboard)
+        case .invoiceDetail(let id):
+            InvoiceDetailPage(router: router, viewModel: dashboard, invoiceID: id)
+        case .addInvoice:
+            AddInvoicePage(router: router, viewModel: dashboard)
+        case .debts:
+            DebtsPage(router: router)
+        case .debtDetail(let id):
+            DebtDetailPage(router: router, debtID: id)
+        case .addDebt:
+            DebtEditPage(router: router, mode: .add)
+        case .editDebt(let id):
+            DebtEditPage(router: router, mode: .edit(id))
+        case .vatOverview:
+            VATOverviewPage(router: router, viewModel: dashboard)
+        case .revenueByMonth:
+            RevenueByMonthPage(router: router, viewModel: dashboard)
+        case .fixedCosts:
+            FixedCostsPage(router: router, viewModel: dashboard)
+        case .addFixedCost:
+            FixedCostEditPage(router: router, viewModel: dashboard, entryID: nil)
+        case .editFixedCost(let id):
+            FixedCostEditPage(router: router, viewModel: dashboard, entryID: id)
+        case .income:
+            IncomePage(router: router, viewModel: dashboard)
+        }
+    }
+}
