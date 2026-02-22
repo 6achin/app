@@ -777,6 +777,11 @@ final class DashboardViewModel: ObservableObject {
     #endif
 
 
+
+    func startOfMonth(for date: Date) -> Date {
+        Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: date)) ?? date
+    }
+
     private func firstNonNil(_ values: [String?]) -> String? {
         values.compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first(where: { !$0.isEmpty })
@@ -1007,12 +1012,6 @@ final class DashboardViewModel: ObservableObject {
         guard let index = cards.firstIndex(where: { $0.type == type }) else { return }
         cards[index].value = value
         cards[index].note = note
-    }
-
-    private func startOfMonth(for date: Date) -> Date {
-        let calendar = Calendar.current
-        let comps = calendar.dateComponents([.year, .month], from: date)
-        return calendar.date(from: comps) ?? date
     }
 
     func formatCurrency(_ value: Double) -> String {

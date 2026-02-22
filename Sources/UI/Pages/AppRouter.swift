@@ -36,9 +36,17 @@ final class BAAppRouter: ObservableObject {
     @Published var path: [BAAppRoute] = [.dashboard]
     @Published var top: BATopDestination = .dashboard
 
+    @Published var invoiceFilterStatus: InvoiceFilterStatus = .all
+    @Published var invoiceMonthFilter: Date?
+    @Published var invoiceOpenMonthlyMode = false
+
     func setTop(_ destination: BATopDestination) {
         top = destination
         path = [rootRoute(for: destination)]
+
+        if destination != .rechnungen {
+            resetInvoiceFilters()
+        }
     }
 
     func push(_ route: BAAppRoute) {
@@ -48,6 +56,36 @@ final class BAAppRouter: ObservableObject {
     func pop() {
         guard path.count > 1 else { return }
         path.removeLast()
+    }
+
+    func openInvoicesAll() {
+        top = .rechnungen
+        invoiceFilterStatus = .all
+        invoiceMonthFilter = nil
+        invoiceOpenMonthlyMode = false
+        path = [.invoices]
+    }
+
+    func openInvoicesFromOpenKPI() {
+        top = .rechnungen
+        invoiceFilterStatus = .open
+        invoiceMonthFilter = nil
+        invoiceOpenMonthlyMode = true
+        path = [.invoices]
+    }
+
+    func openInvoicesForOpenMonth(_ monthStart: Date) {
+        top = .rechnungen
+        invoiceFilterStatus = .open
+        invoiceMonthFilter = monthStart
+        invoiceOpenMonthlyMode = false
+        path = [.invoices]
+    }
+
+    private func resetInvoiceFilters() {
+        invoiceFilterStatus = .all
+        invoiceMonthFilter = nil
+        invoiceOpenMonthlyMode = false
     }
 
     private func rootRoute(for destination: BATopDestination) -> BAAppRoute {
@@ -62,8 +100,6 @@ final class BAAppRouter: ObservableObject {
         }
     }
 }
-
-// Compatibility aliases
 
 typealias BAAAppRouter = BAAppRouter
 typealias BAAAppRoute = BAAppRoute
