@@ -8,11 +8,13 @@ struct FixkostenSheet: View {
     @State private var editingEntry: FixkostenEntry?
 
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
+        ModalSheetContainer(title: "Fixkosten", onClose: { dismiss() }) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("Fixkosten")
-                        .font(.title.bold())
+                    Text("Doppelklick auf eine Zeile, um sie zu bearbeiten.")
+                        .font(.footnote)
+                        .foregroundStyle(AppPalette.textSecondary)
+
                     Spacer()
 
                     Button {
@@ -21,46 +23,21 @@ struct FixkostenSheet: View {
                         Label("Hinzufügen", systemImage: "plus")
                     }
                     .appPrimaryButtonStyle()
-
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                    }
-                    .closeIconButtonStyle()
-                    .help("Schließen")
                 }
 
-                Text("Doppelklick auf eine Zeile, um sie zu bearbeiten.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                fixkostenHeader
 
-                List {
-                    ForEach(viewModel.fixkostenEntries) { entry in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(entry.name)
-                                .font(.headline)
-                            Text(entry.description)
-                                .foregroundStyle(.secondary)
-                            Text("Netto: \(viewModel.formatCurrency(entry.netAmount)) · MwSt \(entry.vatLabel): \(viewModel.formatCurrency(entry.vatAmount)) · Brutto: \(viewModel.formatCurrency(entry.grossAmount))")
-                                .font(.callout)
-                            Text("Intervall: \(entry.cycle.rawValue) · Automatisch: \(entry.automaticDebit ? "Ja" : "Nein")")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.vertical, 4)
-                        .contentShape(Rectangle())
-                        .onTapGesture(count: 2) {
-                            editingEntry = entry
+                ScrollView {
+                    LazyVStack(spacing: 10) {
+                        ForEach(viewModel.fixkostenEntries) { entry in
+                            fixkostenRow(entry)
                         }
                     }
+                    .padding(.vertical, 2)
                 }
-                .appListStyle()
-                .foregroundStyle(AppPalette.textPrimary)
             }
-            .padding(20)
         }
-        .frame(minWidth: 780, minHeight: 560)
+        .frame(minWidth: 860, minHeight: 620)
         .sheet(isPresented: $showAddForm) {
             AddFixkostenForm(viewModel: viewModel)
                 .presentationDetents([.medium])
@@ -70,6 +47,80 @@ struct FixkostenSheet: View {
             EditFixkostenForm(viewModel: viewModel, entry: entry)
                 .presentationDetents([.medium])
                 .interactiveDismissDisabled(false)
+        }
+    }
+
+    private var fixkostenHeader: some View {
+        HStack(spacing: 10) {
+            Text("Position")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppPalette.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text("Netto")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppPalette.textSecondary)
+                .frame(width: 130, alignment: .trailing)
+
+            Text("Brutto")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppPalette.textSecondary)
+                .frame(width: 130, alignment: .trailing)
+
+            Text("Intervall")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppPalette.textSecondary)
+                .frame(width: 140, alignment: .leading)
+        }
+        .padding(.horizontal, 10)
+    }
+
+    private func fixkostenRow(_ entry: FixkostenEntry) -> some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(entry.name)
+                    .font(.headline)
+                    .foregroundStyle(AppPalette.textPrimary)
+                if !entry.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(entry.description)
+                        .font(.footnote)
+                        .foregroundStyle(AppPalette.textSecondary)
+                        .lineLimit(2)
+                }
+                Text("MwSt \(entry.vatLabel) · \(entry.automaticDebit ? "Automatisch" : "Manuell")")
+                    .font(.caption)
+                    .foregroundStyle(AppPalette.textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(viewModel.formatCurrency(entry.netAmount))
+                .font(.callout.weight(.semibold))
+                .monospacedDigit()
+                .frame(width: 130, alignment: .trailing)
+
+            Text(viewModel.formatCurrency(entry.grossAmount))
+                .font(.callout.weight(.semibold))
+                .monospacedDigit()
+                .frame(width: 130, alignment: .trailing)
+
+            Text(entry.cycle.rawValue)
+                .font(.callout)
+                .foregroundStyle(AppPalette.textSecondary)
+                .frame(width: 140, alignment: .leading)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(AppPalette.inputSurface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(AppPalette.border.opacity(0.6), lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            editingEntry = entry
         }
     }
 }
@@ -122,7 +173,7 @@ struct AddFixkostenForm: View {
                 viewModel.addFixkostenEntry(entry)
                 dismiss()
             },
-            isSaveDisabled: netAmount <= 0
+            isSaveDisabled: name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || netAmount <= 0
         )
     }
 }
@@ -178,7 +229,7 @@ struct EditFixkostenForm: View {
                 viewModel.updateFixkostenEntry(updated)
                 dismiss()
             },
-            isSaveDisabled: name.isEmpty || netAmount <= 0
+            isSaveDisabled: name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || netAmount <= 0
         )
         .onAppear {
             name = entry.name
@@ -208,57 +259,106 @@ struct FixkostenFormContent: View {
     let onSave: () -> Void
     let isSaveDisabled: Bool
 
+    private var netAmount: Double {
+        Double(netInput.replacingOccurrences(of: ",", with: ".")) ?? 0
+    }
+
+    private var isNameInvalid: Bool {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var isNetInvalid: Bool {
+        netAmount <= 0
+    }
+
+    private var formColumns: [GridItem] {
+        [
+            GridItem(.flexible(), spacing: 12, alignment: .top),
+            GridItem(.flexible(), spacing: 12, alignment: .top)
+        ]
+    }
+
     var body: some View {
         ModalSheetContainer(title: title, onClose: onClose) {
+            VStack(alignment: .leading, spacing: 12) {
+                GroupBox("Basis") {
+                    LazyVGrid(columns: formColumns, spacing: 12) {
+                        TextField("Name", text: $name)
+                            .modalEditorStyle()
+                            .appValidationHighlight(isNameInvalid)
 
-            TextField("Name", text: $name)
-                .modalEditorStyle()
+                        Picker("Intervall", selection: $cycle) {
+                            ForEach(BillingCycle.allCases) { interval in
+                                Text(interval.rawValue).tag(interval)
+                            }
+                        }
+                        .appSegmentedStyle()
 
-            Picker("Intervall", selection: $cycle) {
-                ForEach(BillingCycle.allCases) { interval in
-                    Text(interval.rawValue).tag(interval)
+                        TextField("Summe Netto", text: $netInput)
+                            .modalEditorStyle()
+                            .appValidationHighlight(isNetInvalid)
+
+                        Picker("MwSt", selection: $vatRate) {
+                            Text("19% ").tag(0.19)
+                            Text("7%").tag(0.07)
+                            Text("0%").tag(0.0)
+                        }
+                        .appSegmentedStyle()
+                    }
+
+                    Toggle("Automatische Abbuchung", isOn: $automaticDebit)
+                        .padding(.top, 6)
+                }
+                .appFormGroupStyle()
+
+                GroupBox("Summen") {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("MwSt")
+                                .font(.caption)
+                                .foregroundStyle(AppPalette.textSecondary)
+                            Text(vatAmountText)
+                                .font(.headline.weight(.semibold))
+                                .monospacedDigit()
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .padding(10)
+                        .background(AppPalette.inputSurface)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Brutto")
+                                .font(.caption)
+                                .foregroundStyle(AppPalette.textSecondary)
+                            Text(grossAmountText)
+                                .font(.headline.weight(.semibold))
+                                .monospacedDigit()
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .padding(10)
+                        .background(AppPalette.inputSurface)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+                }
+                .appFormGroupStyle()
+
+                GroupBox("Beschreibung") {
+                    TextField("Beschreibung", text: $description, axis: .vertical)
+                        .modalEditorStyle()
+                        .lineLimit(2...4)
+                }
+                .appFormGroupStyle()
+
+                HStack {
+                    Spacer()
+                    Button("Abbrechen", role: .cancel, action: onCancel)
+                        .appSecondaryButtonStyle()
+                    Button("Speichern", action: onSave)
+                        .appPrimaryButtonStyle()
+                        .disabled(isSaveDisabled)
                 }
             }
-            .pickerStyle(.segmented)
-
-            Toggle("Automatische Abbuchung", isOn: $automaticDebit)
-
-            TextField("Summe Netto", text: $netInput)
-                .modalEditorStyle()
-
-            Picker("MwSt", selection: $vatRate) {
-                Text("19%").tag(0.19)
-                Text("7%").tag(0.07)
-                Text("0%").tag(0.0)
-            }
-            .pickerStyle(.segmented)
-
-            HStack {
-                Text("MwSt")
-                Spacer()
-                Text(vatAmountText)
-            }
-
-            HStack {
-                Text("Brutto")
-                Spacer()
-                Text(grossAmountText)
-                    .fontWeight(.semibold)
-            }
-
-            TextField("Beschreibung", text: $description, axis: .vertical)
-                .modalEditorStyle()
-                .lineLimit(2...4)
-
-            HStack {
-                Spacer()
-                Button("Abbrechen", role: .cancel, action: onCancel)
-                Button("Speichern", action: onSave)
-                    .appPrimaryButtonStyle()
-                    .disabled(isSaveDisabled)
-            }
         }
-        .frame(width: 500)
+        .frame(width: 640)
     }
 }
-
