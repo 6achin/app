@@ -1,51 +1,23 @@
 import SwiftUI
 
-struct DebtItem: Identifiable, Hashable {
-    enum Direction: String, CaseIterable, Identifiable { case iOwe = "I owe", owedToMe = "Owed to me"; var id: String { rawValue } }
-    enum Status: String, CaseIterable, Identifiable { case active = "active", closed = "closed", overdue = "overdue"; var id: String { rawValue } }
-
-    let id: UUID
-    var direction: Direction
-    var counterparty: String
-    var amount: Double
-    var currency: String
-    var startDate: Date
-    var dueDate: Date
-    var interestEnabled: Bool
-    var interestRate: Double?
-    var taxIncluded: Bool
-    var monthlyAmount: Double?
-    var status: Status
-    var notes: String
-    var attachmentLink: String?
-}
-
-final class DebtsStore: ObservableObject {
-    @Published var debts: [DebtItem] = [
-        DebtItem(id: UUID(), direction: .iOwe, counterparty: "Leasing Partner", amount: 900, currency: "EUR", startDate: .now, dueDate: Calendar.current.date(byAdding: .month, value: 12, to: .now) ?? .now, interestEnabled: true, interestRate: 2.5, taxIncluded: false, monthlyAmount: 85, status: .active, notes: "", attachmentLink: nil)
-    ]
-
-    func upsert(_ item: DebtItem) {
-        if let idx = debts.firstIndex(where: { $0.id == item.id }) { debts[idx] = item } else { debts.append(item) }
-    }
-}
-
 struct DebtsPage: View {
     @ObservedObject var router: BAAppRouter
     @ObservedObject var store: DebtsStore
+
+    @State private var showCreate = false
 
     var body: some View {
         AppShell {
             VStack(alignment: .leading, spacing: 12) {
                 PageHeader(title: "Schulden", subtitle: "MVP", onBack: { router.setTop(.dashboard) })
-                HStack { Spacer(); Button("Neu") { router.push(.addDebt) }.dsPrimaryButton() }
+                HStack { Spacer(); Button("Neu") { showCreate = true }.dsPrimaryButton() }
 
                 DSCard {
                     HStack(spacing: 10) {
                         Text("Richtung").frame(width: 100, alignment: .leading)
-                        Text("Gegenpartei").frame(width: 160, alignment: .leading)
-                        Text("Betrag").frame(width: 110, alignment: .trailing)
-                        Text("Von/Bis").frame(width: 190, alignment: .leading)
+                        Text("Gegenpartei").frame(width: 180, alignment: .leading)
+                        Text("Betrag").frame(width: 120, alignment: .trailing)
+                        Text("Fällig").frame(width: 100, alignment: .leading)
                         Text("Status").frame(width: 80, alignment: .leading)
                     }
                     .font(.system(size: 12, weight: .semibold))
@@ -61,9 +33,9 @@ struct DebtsPage: View {
                                 DSCard {
                                     HStack(spacing: 10) {
                                         Text(debt.direction.rawValue).frame(width: 100, alignment: .leading)
-                                        Text(debt.counterparty).frame(width: 160, alignment: .leading)
-                                        Text("\(debt.currency) \(String(format: "%.2f", debt.amount))").monospacedDigit().frame(width: 110, alignment: .trailing)
-                                        Text("\(debt.startDate.formatted(date: .numeric, time: .omitted)) – \(debt.dueDate.formatted(date: .numeric, time: .omitted))").frame(width: 190, alignment: .leading)
+                                        Text(debt.counterparty).frame(width: 180, alignment: .leading)
+                                        Text("\(debt.currency) \(String(format: "%.2f", debt.amount))").monospacedDigit().frame(width: 120, alignment: .trailing)
+                                        Text(debt.dueDate.formatted(date: .numeric, time: .omitted)).frame(width: 100, alignment: .leading)
                                         Text(debt.status.rawValue).frame(width: 80, alignment: .leading)
                                     }
                                     .font(.system(size: 12))
@@ -76,6 +48,10 @@ struct DebtsPage: View {
                 }
             }
             .padding(18)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        .sheet(isPresented: $showCreate) {
+            DebtFormModal(store: store)
         }
     }
 }
@@ -84,6 +60,8 @@ struct DebtDetailPage: View {
     @ObservedObject var router: BAAppRouter
     @ObservedObject var store: DebtsStore
     let debtID: UUID
+
+    @State private var showEdit = false
 
     private var debt: DebtItem? { store.debts.first(where: { $0.id == debtID }) }
 
@@ -96,28 +74,29 @@ struct DebtDetailPage: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Richtung: \(debt.direction.rawValue)")
                             Text("Betrag: \(debt.currency) \(String(format: "%.2f", debt.amount))")
+                            Text("Von/Bis: \(debt.startDate.formatted(date: .numeric, time: .omitted)) – \(debt.dueDate.formatted(date: .numeric, time: .omitted))")
                             Text("Status: \(debt.status.rawValue)")
-                            Text("Notiz: \(debt.notes.isEmpty ? "-" : debt.notes)")
                             Text("PDF: \(debt.attachmentLink ?? "-")")
                         }
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.textPrimary)
                     }
                 }
-                Button("Bearbeiten") { router.push(.editDebt(debtID)) }.dsPrimaryButton()
+                Button("Bearbeiten") { showEdit = true }.dsPrimaryButton()
                 Spacer()
             }
             .padding(18)
         }
+        .sheet(isPresented: $showEdit) {
+            DebtFormModal(store: store, editingID: debtID)
+        }
     }
 }
 
-enum DebtEditMode { case add, edit(UUID) }
-
-struct DebtEditPage: View {
-    @ObservedObject var router: BAAppRouter
+struct DebtFormModal: View {
+    @Environment(\.dismiss) private var dismiss
     @ObservedObject var store: DebtsStore
-    let mode: DebtEditMode
+    var editingID: UUID?
 
     @State private var direction: DebtItem.Direction = .iOwe
     @State private var counterparty = ""
@@ -135,8 +114,8 @@ struct DebtEditPage: View {
 
     var body: some View {
         AppShell {
-            VStack(alignment: .leading, spacing: 12) {
-                PageHeader(title: modeTitle, subtitle: nil, onBack: { router.pop() })
+            VStack(alignment: .leading, spacing: 10) {
+                HStack { Text(editingID == nil ? "Schuld hinzufügen" : "Schuld bearbeiten").font(.headline); Spacer(); Button("✕") { dismiss() }.dsSecondaryButton() }
                 DSCard {
                     VStack(spacing: 10) {
                         Picker("Richtung", selection: $direction) { ForEach(DebtItem.Direction.allCases) { Text($0.rawValue).tag($0) } }.pickerStyle(.menu)
@@ -150,20 +129,18 @@ struct DebtEditPage: View {
                         Picker("Status", selection: $status) { ForEach(DebtItem.Status.allCases) { Text($0.rawValue).tag($0) } }.pickerStyle(.menu)
                         TextField("Notizen", text: $notes).dsInput()
                         TextField("PDF/Anhang Link", text: $attachmentLink).dsInput()
-                        HStack { Spacer(); Button("Abbrechen") { router.pop() }.dsSecondaryButton(); Button("Speichern") { save() }.dsPrimaryButton() }
+                        HStack { Spacer(); Button("Abbrechen") { dismiss() }.dsSecondaryButton(); Button("Speichern") { save() }.dsPrimaryButton() }
                     }
                 }
-                Spacer()
             }
             .padding(18)
+            .frame(width: 720)
             .onAppear(perform: preload)
         }
     }
 
-    private var modeTitle: String { if case .add = mode { return "Schuld hinzufügen" } else { return "Schuld bearbeiten" } }
-
     private func preload() {
-        guard case .edit(let id) = mode, let debt = store.debts.first(where: { $0.id == id }) else { return }
+        guard let editingID, let debt = store.debts.first(where: { $0.id == editingID }) else { return }
         direction = debt.direction
         counterparty = debt.counterparty
         amount = String(format: "%.2f", debt.amount)
@@ -171,34 +148,38 @@ struct DebtEditPage: View {
         startDate = debt.startDate
         dueDate = debt.dueDate
         interestEnabled = debt.interestEnabled
-        interestRate = debt.interestRate.map { String($0) } ?? ""
+        interestRate = debt.interestRate.map(String.init) ?? ""
         taxIncluded = debt.taxIncluded
-        monthlyAmount = debt.monthlyAmount.map { String($0) } ?? ""
+        monthlyAmount = debt.monthlyAmount.map(String.init) ?? ""
         status = debt.status
         notes = debt.notes
         attachmentLink = debt.attachmentLink ?? ""
     }
 
     private func save() {
-        guard let amountDouble = Double(amount.replacingOccurrences(of: ",", with: ".")), !counterparty.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        let id: UUID = { if case .edit(let x) = mode { return x } else { return UUID() } }()
-        let item = DebtItem(
-            id: id,
-            direction: direction,
-            counterparty: counterparty,
-            amount: amountDouble,
-            currency: currency.isEmpty ? "EUR" : currency,
-            startDate: startDate,
-            dueDate: dueDate,
-            interestEnabled: interestEnabled,
-            interestRate: Double(interestRate.replacingOccurrences(of: ",", with: ".")),
-            taxIncluded: taxIncluded,
-            monthlyAmount: Double(monthlyAmount.replacingOccurrences(of: ",", with: ".")),
-            status: status,
-            notes: notes,
-            attachmentLink: attachmentLink.isEmpty ? nil : attachmentLink
-        )
-        store.upsert(item)
-        router.pop()
+        guard let amountValue = Double(amount.replacingOccurrences(of: ",", with: ".")), !counterparty.isEmpty else { return }
+        let id = editingID ?? UUID()
+        let debt = DebtItem(id: id, direction: direction, counterparty: counterparty, amount: amountValue, currency: currency.isEmpty ? "EUR" : currency, startDate: startDate, dueDate: dueDate, interestEnabled: interestEnabled, interestRate: Double(interestRate.replacingOccurrences(of: ",", with: ".")), taxIncluded: taxIncluded, monthlyAmount: Double(monthlyAmount.replacingOccurrences(of: ",", with: ".")), status: status, notes: notes, attachmentLink: attachmentLink.isEmpty ? nil : attachmentLink)
+        store.upsert(debt)
+        dismiss()
+    }
+}
+
+enum DebtEditMode { case add, edit(UUID) }
+
+struct DebtEditPage: View {
+    @ObservedObject var router: BAAppRouter
+    @ObservedObject var store: DebtsStore
+    let mode: DebtEditMode
+
+    var body: some View {
+        AppShell {
+            VStack(alignment: .leading, spacing: 12) {
+                PageHeader(title: "Schuld", subtitle: "Modal-basiert", onBack: { router.pop() })
+                Button("Im Schulden-Tab erstellen") { router.setTop(.schulden) }.dsSecondaryButton()
+                Spacer()
+            }
+            .padding(18)
+        }
     }
 }

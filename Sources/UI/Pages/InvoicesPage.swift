@@ -39,6 +39,21 @@ struct InvoicesPage: View {
         }
     }
 
+
+    private var suggestions: [String] {
+        let q = search.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard q.count >= 1 else { return [] }
+        let values = viewModel.invoices.flatMap { [
+            $0.invoiceNumber ?? "",
+            $0.customerName ?? "",
+            $0.customerAddress ?? "",
+            $0.customerPhone ?? "",
+            $0.title
+        ] }
+        let uniq = Array(Set(values.filter { !$0.isEmpty && $0.lowercased().contains(q) })).sorted()
+        return Array(uniq.prefix(6))
+    }
+
     private var monthlyOpenRows: [MonthlyOpenRow] {
         let grouped = Dictionary(grouping: viewModel.invoices) { viewModel.startOfMonth(for: $0.issuedAt) }
         return grouped.keys.sorted(by: >).map { month in
@@ -58,25 +73,33 @@ struct InvoicesPage: View {
             VStack(alignment: .leading, spacing: density.spacing) {
                 PageHeader(title: "Rechnungen", subtitle: "Liste", onBack: { router.setTop(.dashboard) })
 
-                HStack(spacing: 8) {
-                    TextField("Suche", text: $search)
-                        .dsInput()
-                        .task(id: search) {
-                            try? await Task.sleep(nanoseconds: 250_000_000)
-                            guard !Task.isCancelled else { return }
-                            debouncedSearch = search
-                        }
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        TextField("Suche", text: $search)
+                            .dsInput()
+                            .task(id: search) {
+                                try? await Task.sleep(nanoseconds: 250_000_000)
+                                guard !Task.isCancelled else { return }
+                                debouncedSearch = search
+                            }
 
-                    Menu("Columns") {
-                        Toggle("Adresse", isOn: $showAddress)
-                        Toggle("Kontakt", isOn: $showContact)
-                        Toggle("Erstellt", isOn: $showCreated)
-                        Toggle("Bezahlt", isOn: $showPaid)
+                        Button("Neue Rechnung") { router.push(.addInvoice) }
+                            .dsPrimaryButton()
                     }
-                    .dsSecondaryButton()
 
-                    Button("Neue Rechnung") { router.push(.addInvoice) }
-                        .dsPrimaryButton()
+                    if !suggestions.isEmpty {
+                        DSCard {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(suggestions, id: \.self) { item in
+                                    Button(item) { search = item; debouncedSearch = item }
+                                        .buttonStyle(.plain)
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(Theme.textPrimary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+                        }
+                    }
                 }
 
                 HStack(spacing: 8) {

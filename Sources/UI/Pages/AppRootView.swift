@@ -5,6 +5,8 @@ struct AppRootView: View {
     @StateObject private var router = BAAppRouter()
     @StateObject private var dashboard = DashboardViewModel()
     @StateObject private var debtsStore = DebtsStore()
+    @StateObject private var ordersStore = OrdersStore()
+    @StateObject private var customersStore = CustomersStore()
     @AppStorage("uiDensityMode") private var densityRaw = UIDensityMode.comfortable.rawValue
 
     private var density: UIDensityMode {
@@ -59,7 +61,7 @@ struct AppRootView: View {
     private func routeView(_ route: BAAppRoute) -> some View {
         switch route {
         case .dashboard:
-            DashboardPage(router: router, viewModel: dashboard)
+            DashboardPage(router: router, viewModel: dashboard, debtsStore: debtsStore, ordersStore: ordersStore, customersStore: customersStore)
         case .invoices:
             InvoicesPage(router: router, viewModel: dashboard)
         case .invoiceDetail(let id):
@@ -70,10 +72,14 @@ struct AppRootView: View {
             DebtsPage(router: router, store: debtsStore)
         case .debtDetail(let id):
             DebtDetailPage(router: router, store: debtsStore, debtID: id)
-        case .addDebt:
-            DebtEditPage(router: router, store: debtsStore, mode: .add)
-        case .editDebt(let id):
-            DebtEditPage(router: router, store: debtsStore, mode: .edit(id))
+        case .orders:
+            OrdersPage(router: router, ordersStore: ordersStore)
+        case .orderDetail(let id):
+            OrderDetailPage(router: router, ordersStore: ordersStore, orderID: id)
+        case .customers:
+            CustomersPage(router: router, customersStore: customersStore)
+        case .customerDetail(let id):
+            CustomerDetailPage(router: router, customersStore: customersStore, customerID: id)
         case .vatOverview:
             VATOverviewPage(router: router, viewModel: dashboard)
         case .revenueByMonth:

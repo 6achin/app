@@ -9,6 +9,8 @@ enum BATopDestination: String, CaseIterable, Identifiable {
     case fixkosten = "Fixkosten"
     case einnahmen = "Einnahmen"
     case schulden = "Schulden"
+    case auftraege = "Aufträge"
+    case kunden = "Kunden"
 
     var id: String { rawValue }
 }
@@ -21,8 +23,12 @@ enum BAAppRoute: Hashable {
 
     case debts
     case debtDetail(UUID)
-    case addDebt
-    case editDebt(UUID)
+
+    case orders
+    case orderDetail(UUID)
+
+    case customers
+    case customerDetail(UUID)
 
     case vatOverview
     case revenueByMonth
@@ -58,19 +64,11 @@ final class BAAppRouter: ObservableObject {
         path.removeLast()
     }
 
-    func openInvoicesAll() {
-        top = .rechnungen
-        invoiceFilterStatus = .all
-        invoiceMonthFilter = nil
-        invoiceOpenMonthlyMode = false
-        path = [.invoices]
-    }
-
-    func openInvoicesFromOpenKPI() {
+    func openInvoicesFromOpenKPI(month: Date?) {
         top = .rechnungen
         invoiceFilterStatus = .open
-        invoiceMonthFilter = nil
-        invoiceOpenMonthlyMode = true
+        invoiceMonthFilter = month
+        invoiceOpenMonthlyMode = month == nil
         path = [.invoices]
     }
 
@@ -97,6 +95,8 @@ final class BAAppRouter: ObservableObject {
         case .fixkosten: return .fixedCosts
         case .einnahmen: return .income
         case .schulden: return .debts
+        case .auftraege: return .orders
+        case .kunden: return .customers
         }
     }
 }
