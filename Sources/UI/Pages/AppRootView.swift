@@ -10,7 +10,6 @@ struct AppRootView: View {
     @AppStorage("uiDensityMode") private var densityRaw = UIDensityMode.comfortable.rawValue
 
     @State private var showWelcomeModal = false
-    @State private var didShowWelcomeInSession = false
 
     private var density: UIDensityMode {
         UIDensityMode(rawValue: densityRaw) ?? .comfortable
@@ -81,14 +80,24 @@ struct AppRootView: View {
         .frame(minWidth: 1100, minHeight: 700)
         .onChange(of: auth.isAuthenticated) { isAuthenticated in
             if isAuthenticated {
-                if !didShowWelcomeInSession {
-                    didShowWelcomeInSession = true
-                    showWelcomeModal = true
-                }
+                presentWelcomeIfNeeded()
             } else {
-                didShowWelcomeInSession = false
                 showWelcomeModal = false
             }
+        }
+        .onChange(of: auth.justLoggedIn) { justLoggedIn in
+            if justLoggedIn {
+                presentWelcomeIfNeeded()
+            }
+        }
+    }
+
+
+    private func presentWelcomeIfNeeded() {
+        guard auth.isAuthenticated, auth.justLoggedIn else { return }
+        auth.justLoggedIn = false
+        DispatchQueue.main.async {
+            showWelcomeModal = true
         }
     }
 

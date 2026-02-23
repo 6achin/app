@@ -5,6 +5,7 @@ final class AuthViewModel: ObservableObject {
     @Published var password = ""
     @Published var isAuthenticated = false
     @Published var errorMessage: String?
+    @Published var justLoggedIn = false
 
     private let allowedUsers = [
         "bachin": "12345",
@@ -20,6 +21,7 @@ final class AuthViewModel: ObservableObject {
 
         if allowedUsers[cleanUsername] == password {
             isAuthenticated = true
+            justLoggedIn = true
             errorMessage = nil
         } else {
             errorMessage = "Benutzername oder Passwort ist falsch."
@@ -29,5 +31,6 @@ final class AuthViewModel: ObservableObject {
     func logout() {
         password = ""
         isAuthenticated = false
+        justLoggedIn = false
     }
 }
