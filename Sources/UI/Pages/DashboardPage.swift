@@ -196,7 +196,7 @@ struct DashboardPage: View {
             Button { showMonthPicker.toggle() } label: { Text(labelForMonth(selectedMonth)) }
                 .dsSecondaryButton()
                 .popover(isPresented: $showMonthPicker) {
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Button { pickerYear -= 1 } label: { Image(systemName: "chevron.left") }
                                 .buttonStyle(.plain)
@@ -246,7 +246,7 @@ struct DashboardPage: View {
     private func kpiCard(_ type: MetricType) -> some View {
         let trend = trendInfo(for: type)
         return DSCard {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(title(for: type)).font(.footnote).foregroundStyle(Theme.textSecondary)
                 Text(mainValue(for: type))
                     .font(.system(size: density == .compact ? 34 : 40, weight: .bold, design: .rounded))
@@ -256,7 +256,7 @@ struct DashboardPage: View {
                     .minimumScaleFactor(0.85)
                 bottomLine(for: type, trend: trend)
             }
-            .frame(maxWidth: .infinity, minHeight: density == .compact ? 118 : 132, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: density == .compact ? 110 : 124, alignment: .topLeading)
             .contentShape(Rectangle())
         }
     }
@@ -266,7 +266,7 @@ struct DashboardPage: View {
         let overdue = debtsStore.debts.filter { $0.status == .overdue }.reduce(0) { $0 + $1.amount }
 
         return DSCard {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Schulden").font(.footnote).foregroundStyle(Theme.textSecondary)
                     Spacer()
@@ -292,7 +292,7 @@ struct DashboardPage: View {
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.textSecondary)
             }
-            .frame(maxWidth: .infinity, minHeight: density == .compact ? 118 : 132, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: density == .compact ? 110 : 124, alignment: .topLeading)
             .contentShape(Rectangle())
             .onTapGesture { router.setTop(.schulden) }
         }
