@@ -341,8 +341,7 @@ struct InvoicesPage: View {
                     .truncationMode(.tail)
                     .frame(width: 160, alignment: .leading)
 
-                Text((invoice.customerAddress ?? "-").replacingOccurrences(of: "
-", with: ", "))
+                Text((invoice.customerAddress ?? "-").replacingOccurrences(of: "\n", with: ", "))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(width: 200, alignment: .leading)
