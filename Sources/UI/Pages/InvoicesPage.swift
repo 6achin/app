@@ -832,7 +832,7 @@ private struct AddInvoiceModal: View {
 
         var invoice = InvoiceEntry(
             title: documentNumber,
-            source: selectedPDFURL == nil ? .manual : .pdfImport,
+            source: selectedPDFURL == nil ? .manual : .pdf,
             type: invoiceType,
             netAmount: netAmount,
             vatRate: vatRate,
