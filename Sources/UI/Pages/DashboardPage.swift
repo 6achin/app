@@ -248,7 +248,6 @@ struct DashboardPage: View {
         return DSCard {
             VStack(alignment: .leading, spacing: 10) {
                 Text(title(for: type)).font(.footnote).foregroundStyle(Theme.textSecondary)
-                Spacer(minLength: 0)
                 Text(mainValue(for: type))
                     .font(.system(size: density == .compact ? 34 : 40, weight: .bold, design: .rounded))
                     .foregroundStyle(Theme.textPrimary)
@@ -257,7 +256,7 @@ struct DashboardPage: View {
                     .minimumScaleFactor(0.85)
                 bottomLine(for: type, trend: trend)
             }
-            .frame(maxWidth: .infinity, minHeight: density == .compact ? 128 : 146, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: density == .compact ? 128 : 146, maxHeight: .infinity, alignment: .topLeading)
             .contentShape(Rectangle())
         }
     }
@@ -275,7 +274,6 @@ struct DashboardPage: View {
                         .buttonStyle(.plain)
                         .foregroundStyle(Theme.accent)
                 }
-                Spacer(minLength: 0)
                 Text("\(debtsStore.debts.filter { $0.status != .closed }.count)")
                     .font(.system(size: density == .compact ? 34 : 40, weight: .bold, design: .rounded))
                     .foregroundStyle(Theme.textPrimary)
@@ -294,7 +292,7 @@ struct DashboardPage: View {
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.textSecondary)
             }
-            .frame(maxWidth: .infinity, minHeight: density == .compact ? 128 : 146, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: density == .compact ? 128 : 146, maxHeight: .infinity, alignment: .topLeading)
             .contentShape(Rectangle())
             .onTapGesture { router.setTop(.schulden) }
         }
