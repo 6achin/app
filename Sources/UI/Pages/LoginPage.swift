@@ -74,7 +74,7 @@ struct LoginPage: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .padding(24)
-            .frame(width: 500)
+            .frame(maxWidth: 520)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(Theme.surface)
@@ -88,6 +88,8 @@ struct LoginPage: View {
                     viewModel.username = savedLoginAccount
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .padding(.horizontal, 16)
         }
     }
 

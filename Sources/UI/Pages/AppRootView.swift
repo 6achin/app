@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(AppKit)
+import AppKit
+#endif
 
 struct AppRootView: View {
     @ObservedObject var auth: AuthViewModel
@@ -8,11 +11,33 @@ struct AppRootView: View {
     @StateObject private var ordersStore = OrdersStore()
     @StateObject private var customersStore = CustomersStore()
     @AppStorage("uiDensityMode") private var densityRaw = UIDensityMode.comfortable.rawValue
+    @AppStorage("inactivityTimeoutMinutes") private var inactivityTimeoutMinutes = 5
 
     @State private var showWelcomeModal = false
+    @State private var showSettingsModal = false
+    @State private var showStillHereModal = false
+
+    @State private var secondsRemaining = 0
+    @State private var warningGraceSeconds = 0
+
+#if canImport(AppKit)
+    @State private var activityMonitors: [Any] = []
+#endif
 
     private var density: UIDensityMode {
         UIDensityMode(rawValue: densityRaw) ?? .comfortable
+    }
+
+    private var inactivityWarningThreshold: Int {
+        inactivityTimeoutMinutes <= 5 ? 60 : 120
+    }
+
+    private var remainingLabel: String {
+        format(seconds: secondsRemaining)
+    }
+
+    private var warningLabel: String {
+        format(seconds: min(secondsRemaining, max(warningGraceSeconds, 0)))
     }
 
     var body: some View {
@@ -48,7 +73,18 @@ struct AppRootView: View {
                         .frame(width: 220)
                     }
                     ToolbarItem(placement: .automatic) {
-                        Button("Abmelden") { auth.logout() }
+                        Button {
+                            showSettingsModal = true
+                        } label: {
+                            Image(systemName: "gearshape")
+                        }
+                        .help("Einstellungen")
+                    }
+                    ToolbarItem(placement: .automatic) {
+                        Button("Abmelden") {
+                            auth.logout()
+                            resetSessionState()
+                        }
                     }
                 }
                 .preferredColorScheme(.light)
@@ -73,6 +109,30 @@ struct AppRootView: View {
                         }
                     )
                 }
+                .sheet(isPresented: $showSettingsModal) {
+                    SessionSettingsModal(timeoutMinutes: $inactivityTimeoutMinutes)
+                }
+                .sheet(isPresented: $showStillHereModal) {
+                    StillHereModal(
+                        remainingLabel: warningLabel,
+                        onContinue: {
+                            registerActivity()
+                        },
+                        onLogout: {
+                            auth.logout()
+                            resetSessionState()
+                        }
+                    )
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    DSCard {
+                        Text("Auto-Logout in \(remainingLabel)")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    .padding(.trailing, 18)
+                    .padding(.bottom, 14)
+                }
             } else {
                 LoginPage(viewModel: auth)
             }
@@ -81,17 +141,36 @@ struct AppRootView: View {
         .onChange(of: auth.isAuthenticated) { isAuthenticated in
             if isAuthenticated {
                 presentWelcomeIfNeeded()
+                resetSessionTimer()
             } else {
                 showWelcomeModal = false
+                resetSessionState()
             }
         }
         .onChange(of: auth.justLoggedIn) { justLoggedIn in
             if justLoggedIn {
                 presentWelcomeIfNeeded()
+                resetSessionTimer()
             }
         }
+        .onChange(of: inactivityTimeoutMinutes) { _ in
+            if auth.isAuthenticated {
+                resetSessionTimer()
+            }
+        }
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+            handleSessionTick()
+        }
+        .onAppear {
+            setupActivityMonitoring()
+            if auth.isAuthenticated {
+                resetSessionTimer()
+            }
+        }
+        .onDisappear {
+            teardownActivityMonitoring()
+        }
     }
-
 
     private func presentWelcomeIfNeeded() {
         guard auth.isAuthenticated, auth.justLoggedIn else { return }
@@ -99,6 +178,77 @@ struct AppRootView: View {
         DispatchQueue.main.async {
             showWelcomeModal = true
         }
+    }
+
+    private func resetSessionTimer() {
+        secondsRemaining = max(inactivityTimeoutMinutes, 1) * 60
+        warningGraceSeconds = 0
+        showStillHereModal = false
+    }
+
+    private func resetSessionState() {
+        secondsRemaining = 0
+        warningGraceSeconds = 0
+        showStillHereModal = false
+        showSettingsModal = false
+    }
+
+    private func registerActivity() {
+        guard auth.isAuthenticated else { return }
+        resetSessionTimer()
+    }
+
+    private func handleSessionTick() {
+        guard auth.isAuthenticated, secondsRemaining > 0 else { return }
+        secondsRemaining -= 1
+
+        if secondsRemaining <= inactivityWarningThreshold, !showStillHereModal {
+            warningGraceSeconds = 60
+            showStillHereModal = true
+        }
+
+        if showStillHereModal, warningGraceSeconds > 0 {
+            warningGraceSeconds -= 1
+            if warningGraceSeconds <= 0 {
+                auth.logout()
+                resetSessionState()
+                return
+            }
+        }
+
+        if secondsRemaining <= 0 {
+            auth.logout()
+            resetSessionState()
+        }
+    }
+
+    private func format(seconds: Int) -> String {
+        let total = max(seconds, 0)
+        let minutes = total / 60
+        let secs = total % 60
+        return String(format: "%02d:%02d", minutes, secs)
+    }
+
+    private func setupActivityMonitoring() {
+#if canImport(AppKit)
+        guard activityMonitors.isEmpty else { return }
+        let eventTypes: [NSEvent.EventTypeMask] = [.mouseMoved, .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel, .keyDown]
+        activityMonitors = eventTypes.compactMap { mask in
+            NSEvent.addLocalMonitorForEvents(matching: mask) { event in
+                registerActivity()
+                return event
+            }
+        }
+#endif
+    }
+
+    private func teardownActivityMonitoring() {
+#if canImport(AppKit)
+        for monitor in activityMonitors {
+            NSEvent.removeMonitor(monitor)
+        }
+        activityMonitors.removeAll()
+#endif
     }
 
     @ViewBuilder
@@ -136,6 +286,89 @@ struct AppRootView: View {
             FixedCostEditPage(router: router, viewModel: dashboard, entryID: id)
         case .income:
             IncomePage(router: router, viewModel: dashboard)
+        }
+    }
+}
+
+private struct SessionSettingsModal: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var timeoutMinutes: Int
+
+    var body: some View {
+        AppShell {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Einstellungen")
+                        .font(.headline)
+                    Spacer()
+                    Button("✕") { dismiss() }
+                        .dsSecondaryButton()
+                }
+
+                DSCard {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Auto-Logout Timeout")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Theme.textSecondary)
+
+                        Picker("Timeout", selection: $timeoutMinutes) {
+                            Text("5 Minuten").tag(5)
+                            Text("10 Minuten").tag(10)
+                            Text("15 Minuten").tag(15)
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                }
+
+                HStack {
+                    Spacer()
+                    Button("Fertig") { dismiss() }
+                        .dsPrimaryButton()
+                }
+            }
+            .padding(18)
+            .frame(width: 460)
+        }
+    }
+}
+
+private struct StillHereModal: View {
+    @Environment(\.dismiss) private var dismiss
+    let remainingLabel: String
+    let onContinue: () -> Void
+    let onLogout: () -> Void
+
+    var body: some View {
+        AppShell {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Noch da?")
+                        .font(.headline)
+                    Spacer()
+                    Button("✕") { dismiss() }
+                        .dsSecondaryButton()
+                }
+
+                Text("Du wirst automatisch abgemeldet in \(remainingLabel).")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.textSecondary)
+
+                HStack {
+                    Button("Ja, weiter") {
+                        onContinue()
+                        dismiss()
+                    }
+                    .dsPrimaryButton()
+
+                    Button("Abmelden") {
+                        onLogout()
+                        dismiss()
+                    }
+                    .dsSecondaryButton()
+                }
+            }
+            .padding(18)
+            .frame(width: 440)
         }
     }
 }
