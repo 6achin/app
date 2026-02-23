@@ -153,9 +153,9 @@ struct DebtFormModal: View {
         startDate = debt.startDate
         dueDate = debt.dueDate
         interestEnabled = debt.interestEnabled
-        interestRate = debt.interestRate.map(String.init) ?? ""
+        interestRate = debt.interestRate.map { String($0) } ?? ""
         taxIncluded = debt.taxIncluded
-        monthlyAmount = debt.monthlyAmount.map(String.init) ?? ""
+        monthlyAmount = debt.monthlyAmount.map { String($0) } ?? ""
         status = debt.status
         notes = debt.notes
         attachmentLink = debt.attachmentLink ?? ""
