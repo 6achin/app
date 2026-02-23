@@ -45,6 +45,8 @@ final class BAAppRouter: ObservableObject {
     @Published var invoiceFilterStatus: InvoiceFilterStatus = .all
     @Published var invoiceMonthFilter: Date?
     @Published var invoiceOpenMonthlyMode = false
+    @Published var invoiceOverdueOnly = false
+    @Published var orderCreateModalRequestToken = 0
 
     func setTop(_ destination: BATopDestination) {
         top = destination
@@ -69,6 +71,7 @@ final class BAAppRouter: ObservableObject {
         invoiceFilterStatus = .open
         invoiceMonthFilter = month
         invoiceOpenMonthlyMode = month == nil
+        invoiceOverdueOnly = false
         path = [.invoices]
     }
 
@@ -77,13 +80,33 @@ final class BAAppRouter: ObservableObject {
         invoiceFilterStatus = .open
         invoiceMonthFilter = monthStart
         invoiceOpenMonthlyMode = false
+        invoiceOverdueOnly = false
         path = [.invoices]
+    }
+
+
+    func openOverdueInvoices() {
+        top = .rechnungen
+        invoiceFilterStatus = .open
+        invoiceMonthFilter = nil
+        invoiceOpenMonthlyMode = false
+        invoiceOverdueOnly = true
+        path = [.invoices]
+    }
+
+    func requestOrderCreateModal() {
+        top = .dashboard
+        if path.first != .dashboard {
+            path = [.dashboard]
+        }
+        orderCreateModalRequestToken += 1
     }
 
     private func resetInvoiceFilters() {
         invoiceFilterStatus = .all
         invoiceMonthFilter = nil
         invoiceOpenMonthlyMode = false
+        invoiceOverdueOnly = false
     }
 
     private func rootRoute(for destination: BATopDestination) -> BAAppRoute {

@@ -1,5 +1,48 @@
 import SwiftUI
 
+private struct DashboardMetricSnapshot {
+    var revenueCurrent: Double
+    var revenuePrevious: Double
+    var vatOutputCurrent: Double
+    var vatInputCurrent: Double
+    var vatPayableCurrent: Double
+    var vatPayablePrevious: Double
+    var paidCurrentMonthCount: Int
+    var overdueCurrentMonthCount: Int
+    var openCurrentMonthCount: Int
+    var openPreviousMonthCount: Int
+    var fixkostenCurrent: Double
+    var fixkostenPrevious: Double
+    var incomeCurrent: Double
+    var incomePrevious: Double
+
+    static let empty = DashboardMetricSnapshot(
+        revenueCurrent: 0,
+        revenuePrevious: 0,
+        vatOutputCurrent: 0,
+        vatInputCurrent: 0,
+        vatPayableCurrent: 0,
+        vatPayablePrevious: 0,
+        paidCurrentMonthCount: 0,
+        overdueCurrentMonthCount: 0,
+        openCurrentMonthCount: 0,
+        openPreviousMonthCount: 0,
+        fixkostenCurrent: 0,
+        fixkostenPrevious: 0,
+        incomeCurrent: 0,
+        incomePrevious: 0
+    )
+}
+
+private struct MonthKey: Hashable {
+    let year: Int
+    let month: Int
+
+    var id: String {
+        String(format: "%04d-%02d", year, month)
+    }
+}
+
 struct DashboardPage: View {
     @ObservedObject var router: BAAppRouter
     @ObservedObject var viewModel: DashboardViewModel
@@ -9,10 +52,14 @@ struct DashboardPage: View {
     @Environment(\.uiDensityMode) private var density
 
     @AppStorage("dashboardSelectedMonth") private var selectedMonthKey = ""
+    @AppStorage("savedLoginAccount") private var savedLoginAccount = ""
 
     @State private var showMonthPicker = false
     @State private var showDebtModal = false
     @State private var showOrderModal = false
+    @State private var cachedMetricsByMonth: [String: DashboardMetricSnapshot] = [:]
+    @State private var currentMetrics: DashboardMetricSnapshot = .empty
+    @State private var pickerYear = Calendar.current.component(.year, from: Date())
 
     private let appVersion = AppVersionReader.readVersion()
 
@@ -21,9 +68,32 @@ struct DashboardPage: View {
         return viewModel.startOfMonth(for: Date())
     }
 
+    private var selectedMonthIdentity: MonthKey {
+        let comps = Calendar.current.dateComponents([.year, .month], from: selectedMonth)
+        return MonthKey(year: comps.year ?? 2000, month: comps.month ?? 1)
+    }
+
+    private var displayName: String? {
+        let normalized = savedLoginAccount.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return nil }
+        return normalized
+            .split(separator: "@")
+            .first?
+            .split(separator: ".")
+            .first?
+            .capitalized
+    }
+
     private static let monthFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM"
+        return f
+    }()
+
+    private static let monthLabelFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "de_DE")
+        f.dateFormat = "LLLL yyyy"
         return f
     }()
 
@@ -37,7 +107,7 @@ struct DashboardPage: View {
                 header
                 monthSwitcher
 
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: density.spacing)], spacing: density.spacing) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: density == .compact ? 280 : 320), spacing: density.spacing)], spacing: density.spacing) {
                     ForEach(kpiCards, id: \.self) { type in
                         Button { open(type) } label: { kpiCard(type) }
                             .buttonStyle(.plain)
@@ -67,18 +137,33 @@ struct DashboardPage: View {
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.textSecondary)
             }
-            .padding(density == .compact ? 14 : 20)
+            .padding(.horizontal, density == .compact ? 14 : 22)
+            .padding(.vertical, density == .compact ? 12 : 18)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .sheet(isPresented: $showDebtModal) { DebtFormModal(store: debtsStore) }
         .sheet(isPresented: $showOrderModal) { OrderCreateModal(ordersStore: ordersStore, customersStore: customersStore) }
+        .task(id: selectedMonthIdentity.id) {
+            refreshMetrics(for: selectedMonth)
+        }
+        .onAppear {
+            if selectedMonthKey.isEmpty { selectedMonthKey = selectedMonthIdentity.id }
+            pickerYear = selectedMonthIdentity.year
+        }
+        .onChange(of: router.orderCreateModalRequestToken) { _ in
+            guard router.top == .dashboard else { return }
+            showOrderModal = true
+        }
     }
 
     private var header: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("Dashboard")
                     .font(.title2.weight(.semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text(greetingText)
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(Theme.textPrimary)
                 Text("CRM Übersicht")
                     .font(.footnote)
@@ -92,31 +177,67 @@ struct DashboardPage: View {
         }
     }
 
+    private var greetingText: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        let prefix: String
+        switch hour {
+        case 5..<12: prefix = "Guten Morgen"
+        case 12..<18: prefix = "Guten Tag"
+        case 18..<23: prefix = "Guten Abend"
+        default: prefix = "Hallo"
+        }
+        if let displayName { return "\(prefix), \(displayName) 👋" }
+        return "\(prefix) 👋"
+    }
+
     private var monthSwitcher: some View {
         HStack(spacing: 8) {
             Button { shiftMonth(-1) } label: { Image(systemName: "chevron.left") }.dsSecondaryButton()
-            Button {
-                showMonthPicker.toggle()
-            } label: {
-                Text(labelForMonth(selectedMonth))
-            }
-            .dsSecondaryButton()
-            .popover(isPresented: $showMonthPicker) {
-                VStack(alignment: .leading, spacing: 8) {
-                    DatePicker("Monat", selection: Binding(get: { selectedMonth }, set: { setMonth($0) }), displayedComponents: [.date])
-                        .datePickerStyle(.graphical)
-                    HStack {
-                        Button("This month") { setMonth(viewModel.startOfMonth(for: Date())); showMonthPicker = false }.dsSecondaryButton()
-                        Button("Last month") {
-                            setMonth(Calendar.current.date(byAdding: .month, value: -1, to: viewModel.startOfMonth(for: Date())) ?? Date())
-                            showMonthPicker = false
+            Button { showMonthPicker.toggle() } label: { Text(labelForMonth(selectedMonth)) }
+                .dsSecondaryButton()
+                .popover(isPresented: $showMonthPicker) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Button { pickerYear -= 1 } label: { Image(systemName: "chevron.left") }
+                                .buttonStyle(.plain)
+                            Text("\(pickerYear)")
+                                .font(.headline)
+                            Button { pickerYear += 1 } label: { Image(systemName: "chevron.right") }
+                                .buttonStyle(.plain)
+                            Spacer()
                         }
-                        .dsSecondaryButton()
+
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 78), spacing: 8)], spacing: 8) {
+                            ForEach(1...12, id: \.self) { month in
+                                Button(monthLabel(month)) {
+                                    setMonth(MonthKey(year: pickerYear, month: month))
+                                    showMonthPicker = false
+                                }
+                                .dsSecondaryButton()
+                            }
+                        }
+
+                        HStack {
+                            Button("This month") {
+                                let now = monthKey(for: Date())
+                                pickerYear = now.year
+                                setMonth(now)
+                                showMonthPicker = false
+                            }
+                            .dsSecondaryButton()
+                            Button("Last month") {
+                                let lastMonthDate = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
+                                let key = monthKey(for: lastMonthDate)
+                                pickerYear = key.year
+                                setMonth(key)
+                                showMonthPicker = false
+                            }
+                            .dsSecondaryButton()
+                        }
                     }
+                    .padding(12)
+                    .frame(width: 360)
                 }
-                .padding(12)
-                .frame(width: 300)
-            }
             Button { shiftMonth(1) } label: { Image(systemName: "chevron.right") }.dsSecondaryButton()
             Spacer()
         }
@@ -125,16 +246,19 @@ struct DashboardPage: View {
     private func kpiCard(_ type: MetricType) -> some View {
         let trend = trendInfo(for: type)
         return DSCard {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 Text(title(for: type)).font(.footnote).foregroundStyle(Theme.textSecondary)
                 Spacer(minLength: 0)
                 Text(mainValue(for: type))
-                    .font(.title3.weight(.semibold))
+                    .font(.system(size: density == .compact ? 34 : 40, weight: .bold, design: .rounded))
                     .foregroundStyle(Theme.textPrimary)
                     .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
                 bottomLine(for: type, trend: trend)
             }
-            .frame(maxWidth: .infinity, minHeight: density == .compact ? 96 : 112, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: density == .compact ? 128 : 146, alignment: .leading)
+            .contentShape(Rectangle())
         }
     }
 
@@ -143,7 +267,7 @@ struct DashboardPage: View {
         let overdue = debtsStore.debts.filter { $0.status == .overdue }.reduce(0) { $0 + $1.amount }
 
         return DSCard {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("Schulden").font(.footnote).foregroundStyle(Theme.textSecondary)
                     Spacer()
@@ -153,18 +277,24 @@ struct DashboardPage: View {
                 }
                 Spacer(minLength: 0)
                 Text("\(debtsStore.debts.filter { $0.status != .closed }.count)")
-                    .font(.title3.weight(.semibold))
+                    .font(.system(size: density == .compact ? 34 : 40, weight: .bold, design: .rounded))
                     .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
                 HStack {
                     Text("Due this month: \(currency(dueThisMonth))")
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                     Spacer()
                     Text("Overdue: \(currency(overdue))")
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                         .foregroundStyle(overdue > 0 ? Theme.danger : Theme.textSecondary)
                 }
-                .font(.system(size: 11))
+                .font(.system(size: 12))
                 .foregroundStyle(Theme.textSecondary)
             }
-            .frame(maxWidth: .infinity, minHeight: density == .compact ? 96 : 112, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: density == .compact ? 128 : 146, alignment: .leading)
             .contentShape(Rectangle())
             .onTapGesture { router.setTop(.schulden) }
         }
@@ -175,27 +305,31 @@ struct DashboardPage: View {
         switch type {
         case .umsatzsteuer:
             HStack {
-                Text("Ausgang: \(currency(vatOutputCurrent)) · Eingang: \(currency(vatInputCurrent))")
+                Text("Ausgang: \(currency(currentMetrics.vatOutputCurrent)) · Eingang: \(currency(currentMetrics.vatInputCurrent))")
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 Spacer(minLength: 8)
                 Text(trend.label).foregroundStyle(trend.color)
             }
-            .font(.system(size: 11))
+            .font(.system(size: 12))
             .foregroundStyle(Theme.textSecondary)
 
         case .rechnungenOffen:
             HStack {
-                Text("Bezahlt: \(paidCurrentMonthCount)")
+                Text("Bezahlt: \(currentMetrics.paidCurrentMonthCount)")
                 Spacer(minLength: 8)
-                Text("Überfällig: \(overdueCurrentMonthCount)")
-                    .foregroundStyle(overdueCurrentMonthCount > 0 ? Theme.danger : Theme.textSecondary)
+                Text("Überfällig: \(currentMetrics.overdueCurrentMonthCount)")
+                    .foregroundStyle(currentMetrics.overdueCurrentMonthCount > 0 ? Theme.danger : Theme.textSecondary)
             }
-            .font(.system(size: 11))
+            .font(.system(size: 12))
             .foregroundStyle(Theme.textSecondary)
 
         default:
             Text(trend.label)
-                .font(.system(size: 11))
+                .font(.system(size: 12))
                 .foregroundStyle(trend.color)
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
     }
 
@@ -211,18 +345,75 @@ struct DashboardPage: View {
 
     private func shiftMonth(_ delta: Int) {
         let date = Calendar.current.date(byAdding: .month, value: delta, to: selectedMonth) ?? selectedMonth
-        setMonth(date)
+        let key = monthKey(for: date)
+        pickerYear = key.year
+        setMonth(key)
     }
 
-    private func setMonth(_ date: Date) {
-        selectedMonthKey = Self.monthFormatter.string(from: viewModel.startOfMonth(for: date))
+    private func monthKey(for date: Date) -> MonthKey {
+        let c = Calendar.current.dateComponents([.year, .month], from: viewModel.startOfMonth(for: date))
+        return MonthKey(year: c.year ?? 2000, month: c.month ?? 1)
+    }
+
+    private func setMonth(_ key: MonthKey) {
+        selectedMonthKey = key.id
     }
 
     private func labelForMonth(_ date: Date) -> String {
+        Self.monthLabelFormatter.string(from: date).capitalized
+    }
+
+    private func monthLabel(_ month: Int) -> String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "de_DE")
-        f.dateFormat = "LLLL yyyy"
-        return f.string(from: date).capitalized
+        return (f.shortMonthSymbols[safe: month - 1] ?? "M\(month)").capitalized
+    }
+
+    private func refreshMetrics(for date: Date) {
+        let key = monthKey(for: date).id
+        if let cached = cachedMetricsByMonth[key] {
+            currentMetrics = cached
+            return
+        }
+
+        let selectedStart = viewModel.startOfMonth(for: date)
+        let previousMonth = Calendar.current.date(byAdding: .month, value: -1, to: selectedStart) ?? selectedStart
+        let currentInvoices = viewModel.invoices.filter { viewModel.startOfMonth(for: $0.issuedAt) == selectedStart }
+        let previousInvoices = viewModel.invoices.filter { viewModel.startOfMonth(for: $0.issuedAt) == previousMonth }
+
+        let revenueCurrent = currentInvoices.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.netAmount }
+        let revenuePrevious = previousInvoices.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.netAmount }
+        let vatOutputCurrent = currentInvoices.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.vatAmount }
+        let vatInputCurrent = currentInvoices.filter { $0.type == .eingangsrechnung }.reduce(0) { $0 + $1.vatAmount }
+        let vatOutputPrevious = previousInvoices.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.vatAmount }
+        let vatInputPrevious = previousInvoices.filter { $0.type == .eingangsrechnung }.reduce(0) { $0 + $1.vatAmount }
+        let vatPayableCurrent = vatOutputCurrent - vatInputCurrent
+        let vatPayablePrevious = vatOutputPrevious - vatInputPrevious
+
+        let fixkostenCurrent = viewModel.fixkostenEntries.reduce(0) { $0 + $1.grossAmount }
+        let fixkostenPrevious = fixkostenCurrent
+        let incomeCurrent = revenueCurrent - max(vatPayableCurrent, 0) - viewModel.kreditUndDarlehenMonatlich - fixkostenCurrent
+        let incomePrevious = revenuePrevious - max(vatPayablePrevious, 0) - viewModel.kreditUndDarlehenMonatlich - fixkostenPrevious
+
+        let snapshot = DashboardMetricSnapshot(
+            revenueCurrent: revenueCurrent,
+            revenuePrevious: revenuePrevious,
+            vatOutputCurrent: vatOutputCurrent,
+            vatInputCurrent: vatInputCurrent,
+            vatPayableCurrent: vatPayableCurrent,
+            vatPayablePrevious: vatPayablePrevious,
+            paidCurrentMonthCount: currentInvoices.filter(\.isPaid).count,
+            overdueCurrentMonthCount: currentInvoices.filter { viewModel.dueState(for: $0) == "overdue" }.count,
+            openCurrentMonthCount: currentInvoices.filter { !$0.isPaid }.count,
+            openPreviousMonthCount: previousInvoices.filter { !$0.isPaid }.count,
+            fixkostenCurrent: fixkostenCurrent,
+            fixkostenPrevious: fixkostenPrevious,
+            incomeCurrent: incomeCurrent,
+            incomePrevious: incomePrevious
+        )
+
+        currentMetrics = snapshot
+        cachedMetricsByMonth[key] = snapshot
     }
 
     private func title(for type: MetricType) -> String {
@@ -237,51 +428,25 @@ struct DashboardPage: View {
 
     private func mainValue(for type: MetricType) -> String {
         switch type {
-        case .umsatz: return currency(revenueCurrent)
-        case .umsatzsteuer: return currency(vatPayableCurrent)
-        case .rechnungenOffen: return "\(openCurrentMonthCount)"
-        case .einnahmen: return currency(incomeCurrent)
-        case .fixkosten: return currency(fixkostenCurrent)
+        case .umsatz: return currency(currentMetrics.revenueCurrent)
+        case .umsatzsteuer: return currency(currentMetrics.vatPayableCurrent)
+        case .rechnungenOffen: return "\(currentMetrics.openCurrentMonthCount)"
+        case .einnahmen: return currency(currentMetrics.incomeCurrent)
+        case .fixkosten: return currency(currentMetrics.fixkostenCurrent)
         }
     }
 
     private func trendInfo(for type: MetricType) -> MoMTrend {
         let t: Double
         switch type {
-        case .umsatz: t = mom(current: revenueCurrent, previous: revenuePrevious)
-        case .umsatzsteuer: t = mom(current: vatPayableCurrent, previous: vatPayablePrevious)
-        case .rechnungenOffen: t = mom(current: Double(openCurrentMonthCount), previous: Double(openPreviousMonthCount))
-        case .einnahmen: t = mom(current: incomeCurrent, previous: incomePrevious)
-        case .fixkosten: t = mom(current: fixkostenCurrent, previous: fixkostenPrevious, lowerIsBetter: true)
+        case .umsatz: t = mom(current: currentMetrics.revenueCurrent, previous: currentMetrics.revenuePrevious)
+        case .umsatzsteuer: t = mom(current: currentMetrics.vatPayableCurrent, previous: currentMetrics.vatPayablePrevious)
+        case .rechnungenOffen: t = mom(current: Double(currentMetrics.openCurrentMonthCount), previous: Double(currentMetrics.openPreviousMonthCount))
+        case .einnahmen: t = mom(current: currentMetrics.incomeCurrent, previous: currentMetrics.incomePrevious)
+        case .fixkosten: t = mom(current: currentMetrics.fixkostenCurrent, previous: currentMetrics.fixkostenPrevious, lowerIsBetter: true)
         }
         return MoMTrend(value: t)
     }
-
-    private var previousMonth: Date { Calendar.current.date(byAdding: .month, value: -1, to: selectedMonth) ?? selectedMonth }
-    private var currentInvoices: [InvoiceEntry] { viewModel.invoices.filter { viewModel.startOfMonth(for: $0.issuedAt) == selectedMonth } }
-    private var previousInvoices: [InvoiceEntry] { viewModel.invoices.filter { viewModel.startOfMonth(for: $0.issuedAt) == previousMonth } }
-
-    private var revenueCurrent: Double { currentInvoices.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.netAmount } }
-    private var revenuePrevious: Double { previousInvoices.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.netAmount } }
-
-    private var vatOutputCurrent: Double { currentInvoices.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.vatAmount } }
-    private var vatInputCurrent: Double { currentInvoices.filter { $0.type == .eingangsrechnung }.reduce(0) { $0 + $1.vatAmount } }
-    private var vatPayableCurrent: Double { vatOutputCurrent - vatInputCurrent }
-
-    private var vatOutputPrevious: Double { previousInvoices.filter { $0.type == .ausgangsrechnung }.reduce(0) { $0 + $1.vatAmount } }
-    private var vatInputPrevious: Double { previousInvoices.filter { $0.type == .eingangsrechnung }.reduce(0) { $0 + $1.vatAmount } }
-    private var vatPayablePrevious: Double { vatOutputPrevious - vatInputPrevious }
-
-    private var paidCurrentMonthCount: Int { currentInvoices.filter { $0.isPaid }.count }
-    private var overdueCurrentMonthCount: Int { currentInvoices.filter { viewModel.dueState(for: $0) == "overdue" }.count }
-    private var openCurrentMonthCount: Int { currentInvoices.filter { !$0.isPaid }.count }
-    private var openPreviousMonthCount: Int { previousInvoices.filter { !$0.isPaid }.count }
-
-    private var fixkostenCurrent: Double { viewModel.fixkostenEntries.reduce(0) { $0 + $1.grossAmount } }
-    private var fixkostenPrevious: Double { fixkostenCurrent }
-
-    private var incomeCurrent: Double { revenueCurrent - max(vatPayableCurrent, 0) - viewModel.kreditUndDarlehenMonatlich - fixkostenCurrent }
-    private var incomePrevious: Double { revenuePrevious - max(vatPayablePrevious, 0) - viewModel.kreditUndDarlehenMonatlich - fixkostenPrevious }
 
     private func mom(current: Double, previous: Double, lowerIsBetter: Bool = false) -> Double {
         guard abs(previous) > 0.0001 else { return .infinity }
@@ -413,5 +578,12 @@ private enum AppVersionReader {
         }
 
         return "0.0.0"
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        guard indices.contains(index) else { return nil }
+        return self[index]
     }
 }

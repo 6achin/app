@@ -31,6 +31,11 @@ struct InvoicesPage: View {
                 break
             }
 
+            if router.invoiceOverdueOnly,
+               viewModel.dueState(for: invoice) != "overdue" {
+                return false
+            }
+
             guard !text.isEmpty else { return true }
             let value = [invoice.invoiceNumber ?? "", invoice.customerName ?? "", invoice.customerAddress ?? "", invoice.customerPhone ?? "", invoice.title]
                 .joined(separator: " ")
@@ -232,6 +237,7 @@ struct InvoicesPage: View {
         Button(title) {
             router.invoiceFilterStatus = status
             router.invoiceOpenMonthlyMode = false
+            router.invoiceOverdueOnly = false
         }
         .dsSecondaryButton()
         .overlay(
