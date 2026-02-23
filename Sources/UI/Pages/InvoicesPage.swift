@@ -135,16 +135,18 @@ struct InvoicesPage: View {
                 tableHeader
 
                 ScrollView([.vertical, .horizontal]) {
-                    LazyVStack(spacing: 8) {
+                    LazyVStack(alignment: .leading, spacing: 8) {
                         ForEach(filtered) { invoice in
                             invoiceRow(invoice)
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
             .padding(.horizontal, density == .compact ? 14 : 20)
             .padding(.vertical, density == .compact ? 12 : 18)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .sheet(isPresented: $showAddInvoiceModal) {
             AddInvoiceModal(viewModel: viewModel)
@@ -252,6 +254,7 @@ struct InvoicesPage: View {
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(Theme.textSecondary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var tableHeader: some View {
@@ -271,6 +274,7 @@ struct InvoicesPage: View {
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(Theme.textSecondary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func invoiceRow(_ invoice: InvoiceEntry) -> some View {
@@ -333,6 +337,7 @@ struct InvoicesPage: View {
             }
             .contentShape(Rectangle())
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
