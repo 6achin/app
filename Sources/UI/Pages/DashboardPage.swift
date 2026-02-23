@@ -256,7 +256,7 @@ struct DashboardPage: View {
                     .minimumScaleFactor(0.85)
                 bottomLine(for: type, trend: trend)
             }
-            .frame(maxWidth: .infinity, minHeight: density == .compact ? 128 : 146, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: density == .compact ? 118 : 132, alignment: .topLeading)
             .contentShape(Rectangle())
         }
     }
@@ -292,7 +292,7 @@ struct DashboardPage: View {
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.textSecondary)
             }
-            .frame(maxWidth: .infinity, minHeight: density == .compact ? 128 : 146, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: density == .compact ? 118 : 132, alignment: .topLeading)
             .contentShape(Rectangle())
             .onTapGesture { router.setTop(.schulden) }
         }
