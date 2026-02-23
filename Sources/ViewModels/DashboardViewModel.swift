@@ -77,6 +77,7 @@ struct InvoiceEntry: Identifiable, Codable {
     var customerName: String?
     var customerAddress: String?
     var customerPhone: String?
+    var customerEmail: String?
     var paymentTermDays: Int?
     var paymentTermsText: String?
     var pdfStoredFileName: String?
@@ -99,6 +100,7 @@ struct InvoiceEntry: Identifiable, Codable {
         customerName: String? = nil,
         customerAddress: String? = nil,
         customerPhone: String? = nil,
+        customerEmail: String? = nil,
         paymentTermDays: Int? = nil,
         paymentTermsText: String? = nil,
         pdfStoredFileName: String? = nil
@@ -120,6 +122,7 @@ struct InvoiceEntry: Identifiable, Codable {
         self.customerName = customerName
         self.customerAddress = customerAddress
         self.customerPhone = customerPhone
+        self.customerEmail = customerEmail
         self.paymentTermDays = paymentTermDays
         self.paymentTermsText = paymentTermsText
         self.pdfStoredFileName = pdfStoredFileName
@@ -983,6 +986,11 @@ final class DashboardViewModel: ObservableObject {
         } catch {
             return nil
         }
+    }
+
+
+    func storePDFForInvoice(from sourceURL: URL) -> String? {
+        storePDFLocally(from: sourceURL)
     }
 
     private func persistData() {

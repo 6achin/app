@@ -257,7 +257,7 @@ struct AppRootView: View {
         case .dashboard:
             DashboardPage(router: router, viewModel: dashboard, debtsStore: debtsStore, ordersStore: ordersStore, customersStore: customersStore)
         case .invoices:
-            InvoicesPage(router: router, viewModel: dashboard)
+            InvoicesPage(router: router, viewModel: dashboard, customersStore: customersStore)
         case .invoiceDetail(let id):
             InvoiceDetailPage(router: router, viewModel: dashboard, invoiceID: id)
         case .addInvoice:

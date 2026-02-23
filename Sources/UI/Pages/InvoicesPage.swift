@@ -1,4 +1,8 @@
 import SwiftUI
+import UniformTypeIdentifiers
+#if canImport(AppKit)
+import AppKit
+#endif
 
 private struct InvoiceMonthKey: Hashable {
     let year: Int
@@ -21,9 +25,40 @@ private enum InvoiceInlineStatus: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+private enum DocumentNumberType: String, CaseIterable, Identifiable {
+    case invoice = "Rechnungsnummer"
+    case delivery = "Lieferscheinnummer"
+    case other = "Sonstiges"
+
+    var id: String { rawValue }
+}
+
+private enum PaymentTermPreset: String, CaseIterable, Identifiable {
+    case cash = "Bar (Sofort)"
+    case prepay7 = "Vorkasse (7 Tage)"
+    case transfer7 = "Überweisung (7 Tage)"
+    case transfer14 = "Überweisung (14 Tage)"
+
+    var id: String { rawValue }
+
+    var days: Int {
+        switch self {
+        case .cash: return 0
+        case .prepay7: return 7
+        case .transfer7: return 7
+        case .transfer14: return 14
+        }
+    }
+
+    var marksPaid: Bool {
+        self == .cash
+    }
+}
+
 struct InvoicesPage: View {
     @ObservedObject var router: BAAppRouter
     @ObservedObject var viewModel: DashboardViewModel
+    @ObservedObject var customersStore: CustomersStore
     @Environment(\.uiDensityMode) private var density
 
     @AppStorage("invoicesSelectedMonth") private var selectedMonthKey = ""
@@ -78,11 +113,12 @@ struct InvoicesPage: View {
             guard !query.isEmpty else { return true }
             let searchable = [
                 invoice.invoiceNumber ?? "",
+                invoice.referenceNumber ?? "",
                 invoice.customerName ?? "",
                 invoice.customerPhone ?? "",
+                invoice.customerEmail ?? "",
                 invoice.customerAddress ?? "",
                 invoice.customerNumber ?? "",
-                invoice.referenceNumber ?? "",
                 invoice.title,
                 invoice.paymentTermsText ?? ""
             ]
@@ -95,14 +131,18 @@ struct InvoicesPage: View {
     private var suggestions: [String] {
         let q = search.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard q.count >= 1 else { return [] }
-        let values = filtered.flatMap { [
-            $0.invoiceNumber ?? "",
-            $0.customerName ?? "",
-            $0.customerPhone ?? "",
-            $0.customerAddress ?? "",
-            $0.customerNumber ?? "",
-            $0.title
-        ] }
+        let values = filtered.flatMap {
+            [
+                $0.invoiceNumber ?? "",
+                $0.referenceNumber ?? "",
+                $0.customerName ?? "",
+                $0.customerPhone ?? "",
+                $0.customerEmail ?? "",
+                $0.customerAddress ?? "",
+                $0.customerNumber ?? "",
+                $0.title
+            ]
+        }
         return Array(Set(values.filter { !$0.isEmpty && $0.lowercased().contains(q) })).sorted().prefix(6).map { $0 }
     }
 
@@ -149,7 +189,7 @@ struct InvoicesPage: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .sheet(isPresented: $showAddInvoiceModal) {
-            AddInvoiceModal(viewModel: viewModel)
+            AddInvoiceModal(viewModel: viewModel, customersStore: customersStore, defaultIssuedAt: selectedMonth)
         }
         .onAppear {
             if selectedMonthKey.isEmpty {
@@ -261,11 +301,14 @@ struct InvoicesPage: View {
         DSCard {
             HStack(spacing: 10) {
                 Text("Nr").frame(width: 96, alignment: .leading)
-                Text("Name").frame(width: 180, alignment: .leading)
-                Text("Adresse").frame(width: 220, alignment: .leading)
-                Text("Kontakt").frame(width: 160, alignment: .leading)
-                Text("Betrag").frame(width: 118, alignment: .trailing)
-                Text("Frist").frame(width: 124, alignment: .leading)
+                Text("Name").frame(width: 160, alignment: .leading)
+                Text("Adresse").frame(width: 200, alignment: .leading)
+                Text("Kontakt").frame(width: 150, alignment: .leading)
+                Text("Netto").frame(width: 92, alignment: .trailing)
+                Text("MwSt %").frame(width: 64, alignment: .trailing)
+                Text("MwSt").frame(width: 92, alignment: .trailing)
+                Text("Brutto").frame(width: 92, alignment: .trailing)
+                Text("Frist").frame(width: 110, alignment: .leading)
                 Text("Erstellt").frame(width: 96, alignment: .leading)
                 Text("Bezahlt").frame(width: 96, alignment: .leading)
                 Text("Status").frame(width: 108, alignment: .leading)
@@ -284,10 +327,11 @@ struct InvoicesPage: View {
         let paid = invoice.paidAt?.formatted(date: .numeric, time: .omitted) ?? "-"
         let statusText = statusLabel(for: invoice)
         let statusColor = statusColor(for: invoice)
+        let contact = (invoice.customerPhone?.isEmpty == false ? invoice.customerPhone : invoice.customerEmail) ?? "-"
 
         return DSCard {
             HStack(spacing: 10) {
-                Text(invoice.invoiceNumber ?? "-")
+                Text(invoice.invoiceNumber ?? invoice.referenceNumber ?? "-")
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(width: 96, alignment: .leading)
@@ -295,23 +339,38 @@ struct InvoicesPage: View {
                 Text(invoice.customerName ?? invoice.title)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .frame(width: 180, alignment: .leading)
+                    .frame(width: 160, alignment: .leading)
 
-                Text((invoice.customerAddress ?? "-").replacingOccurrences(of: "\n", with: ", "))
+                Text((invoice.customerAddress ?? "-").replacingOccurrences(of: "
+", with: ", "))
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .frame(width: 220, alignment: .leading)
+                    .frame(width: 200, alignment: .leading)
 
-                contactCell(for: invoice)
-                    .frame(width: 160, alignment: .leading)
+                contactCell(for: invoice, fallback: contact)
+                    .frame(width: 150, alignment: .leading)
+
+                Text(viewModel.formatCurrency(invoice.netAmount))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .frame(width: 92, alignment: .trailing)
+
+                Text("\(Int((invoice.vatRate * 100).rounded()))%")
+                    .monospacedDigit()
+                    .frame(width: 64, alignment: .trailing)
+
+                Text(viewModel.formatCurrency(invoice.vatAmount))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .frame(width: 92, alignment: .trailing)
 
                 Text(viewModel.formatCurrency(invoice.grossAmount))
                     .monospacedDigit()
                     .lineLimit(1)
-                    .frame(width: 118, alignment: .trailing)
+                    .frame(width: 92, alignment: .trailing)
 
                 dueDateCell(for: invoice, dueDate: dueDate, dueText: dueText)
-                    .frame(width: 124, alignment: .leading)
+                    .frame(width: 110, alignment: .leading)
 
                 Text(created).frame(width: 96, alignment: .leading)
                 Text(paid).frame(width: 96, alignment: .leading)
@@ -358,18 +417,18 @@ struct InvoicesPage: View {
     }
 
     @ViewBuilder
-    private func contactCell(for invoice: InvoiceEntry) -> some View {
+    private func contactCell(for invoice: InvoiceEntry, fallback: String) -> some View {
         if editingCell?.id == invoice.id, editingCell?.field == .contact {
             TextField("Kontakt", text: $editingContact)
                 .textFieldStyle(.plain)
                 .onSubmit { saveInlineEdit(for: invoice) }
         } else {
-            Text((invoice.customerPhone ?? "-").isEmpty ? "-" : (invoice.customerPhone ?? "-"))
+            Text(fallback)
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .onTapGesture(count: 2) {
                     editingCell = (invoice.id, .contact)
-                    editingContact = invoice.customerPhone ?? ""
+                    editingContact = fallback == "-" ? "" : fallback
                 }
         }
     }
@@ -419,7 +478,14 @@ struct InvoicesPage: View {
                 updated.paymentTermsText = "\(max(days, 0)) Tage"
             }
         case .contact:
-            updated.customerPhone = editingContact.trimmingCharacters(in: .whitespacesAndNewlines)
+            let clean = editingContact.trimmingCharacters(in: .whitespacesAndNewlines)
+            if clean.contains("@") {
+                updated.customerEmail = clean
+                updated.customerPhone = nil
+            } else {
+                updated.customerPhone = clean
+                if !clean.isEmpty { updated.customerEmail = nil }
+            }
         case .status:
             switch editingStatus {
             case .paid:
@@ -492,10 +558,79 @@ struct InvoicesPage: View {
 private struct AddInvoiceModal: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: DashboardViewModel
+    @ObservedObject var customersStore: CustomersStore
 
-    @State private var title = ""
-    @State private var number = ""
-    @State private var net = ""
+    let defaultIssuedAt: Date
+
+    @State private var invoiceType: InvoiceType = .ausgangsrechnung
+    @State private var documentType: DocumentNumberType = .invoice
+    @State private var documentNumber = ""
+
+    @State private var customerNumber = ""
+    @State private var company = ""
+    @State private var firstName = ""
+    @State private var lastName = ""
+    @State private var street = ""
+    @State private var postalCode = ""
+    @State private var city = ""
+    @State private var email = ""
+    @State private var phone = ""
+
+    @State private var taxNumber = ""
+    @State private var vatId = ""
+
+    @State private var issuedAt = Date()
+    @State private var paymentTerm: PaymentTermPreset = .transfer14
+
+    @State private var netInput = ""
+    @State private var vatRate: Double = 0.19
+
+    @State private var selectedPDFURL: URL?
+    @State private var showPDFImporter = false
+    @State private var showCreateCustomerModal = false
+
+    private var foundCustomer: CustomerItem? {
+        customersStore.find(by: customerNumber)
+    }
+
+    private var fullName: String {
+        [firstName, lastName].joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var customerDisplayName: String {
+        let manual = [company, fullName].filter { !$0.isEmpty }.joined(separator: company.isEmpty || fullName.isEmpty ? "" : " · ")
+        return manual.isEmpty ? "-" : manual
+    }
+
+    private var customerAddressCombined: String {
+        let first = street.trimmingCharacters(in: .whitespacesAndNewlines)
+        let second = [postalCode, city].filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.joined(separator: " ")
+        return [first, second].filter { !$0.isEmpty }.joined(separator: ", ")
+    }
+
+    private var netAmount: Double {
+        Double(netInput.replacingOccurrences(of: ",", with: ".")) ?? 0
+    }
+
+    private var vatAmount: Double {
+        netAmount * vatRate
+    }
+
+    private var grossAmount: Double {
+        netAmount + vatAmount
+    }
+
+    private var computedDueDate: Date {
+        Calendar.current.date(byAdding: .day, value: paymentTerm.days, to: issuedAt) ?? issuedAt
+    }
+
+    private var saveDisabled: Bool {
+        let hasDocument = !documentNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasAmount = netAmount > 0
+        let hasCounterparty = !customerDisplayName.isEmpty && customerDisplayName != "-"
+        let hasAddressBasics = !postalCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !city.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return !hasDocument || !hasAmount || !(hasCounterparty && hasAddressBasics)
+    }
 
     var body: some View {
         AppShell {
@@ -509,39 +644,222 @@ private struct AddInvoiceModal: View {
                         .dsSecondaryButton()
                 }
 
-                DSCard {
-                    VStack(spacing: 10) {
-                        TextField("Bezeichnung", text: $title).dsInput()
-                        TextField("Rechnungs-Nr.", text: $number).dsInput()
-                        TextField("Netto", text: $net).dsInput()
-
-                        HStack {
-                            Spacer()
-                            Button("Abbrechen") { dismiss() }.dsSecondaryButton()
-                            Button("Speichern") {
-                                let amount = Double(net.replacingOccurrences(of: ",", with: ".")) ?? 0
-                                let invoice = InvoiceEntry(
-                                    title: title.isEmpty ? "Neue Rechnung" : title,
-                                    source: .manual,
-                                    type: .ausgangsrechnung,
-                                    netAmount: amount,
-                                    vatRate: 0.19,
-                                    isPaid: false,
-                                    issuedAt: Date(),
-                                    invoiceNumber: number.isEmpty ? nil : number
-                                )
-                                viewModel.addInvoice(invoice)
-                                dismiss()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        DSCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Rechnungstyp").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                                Picker("Typ", selection: $invoiceType) {
+                                    Text("Ausgang").tag(InvoiceType.ausgangsrechnung)
+                                    Text("Eingang").tag(InvoiceType.eingangsrechnung)
+                                }
+                                .pickerStyle(.segmented)
                             }
-                            .dsPrimaryButton()
-                            .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (Double(net.replacingOccurrences(of: ",", with: ".")) ?? 0) <= 0)
+                        }
+
+                        DSCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("PDF Anhang").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                                HStack {
+                                    Button(selectedPDFURL == nil ? "PDF hochladen" : "Ersetzen") {
+                                        showPDFImporter = true
+                                    }
+                                    .dsSecondaryButton()
+
+                                    if selectedPDFURL != nil {
+                                        Button("Öffnen") { openSelectedPDF() }.dsSecondaryButton()
+                                        Button("Entfernen") { selectedPDFURL = nil }.dsSecondaryButton()
+                                    }
+                                }
+                                if let selectedPDFURL {
+                                    Text(selectedPDFURL.lastPathComponent)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(Theme.textSecondary)
+                                }
+                            }
+                        }
+
+                        DSCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Kunde & Dokumentnummer").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                                TextField("Kundennummer", text: $customerNumber)
+                                    .dsInput()
+                                    .onChange(of: customerNumber) { _ in applyCustomerLookup() }
+
+                                if let customer = foundCustomer {
+                                    Text("Kunde: \(customer.name), \(customer.city)")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(Theme.textSecondary)
+                                } else {
+                                    HStack {
+                                        Text("Kunde nicht gefunden")
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(Theme.textSecondary)
+                                        Spacer()
+                                        Button("Kunde anlegen") { showCreateCustomerModal = true }
+                                            .dsSecondaryButton()
+                                    }
+                                }
+
+                                Picker("Dokumenttyp", selection: $documentType) {
+                                    ForEach(DocumentNumberType.allCases) { type in
+                                        Text(type.rawValue).tag(type)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+
+                                TextField(documentType.rawValue, text: $documentNumber)
+                                    .dsInput()
+                            }
+                        }
+
+                        DSCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Gegenpartei").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                                TextField("Firma / Shopname", text: $company).dsInput()
+                                HStack { TextField("Vorname", text: $firstName).dsInput(); TextField("Nachname", text: $lastName).dsInput() }
+                                HStack { TextField("Straße + Hausnr.", text: $street).dsInput(); TextField("PLZ", text: $postalCode).dsInput() }
+                                HStack { TextField("Stadt", text: $city).dsInput(); TextField("E-Mail", text: $email).dsInput() }
+                                TextField("Telefon", text: $phone).dsInput()
+                            }
+                        }
+
+                        DSCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Steuerdaten").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                                HStack { TextField("Steuernummer", text: $taxNumber).dsInput(); TextField("USt-IdNr.", text: $vatId).dsInput() }
+                            }
+                        }
+
+                        DSCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Datum & Zahlungsbedingungen").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                                DatePicker("Erstellt am", selection: $issuedAt, displayedComponents: .date)
+                                Picker("Zahlungsart", selection: $paymentTerm) {
+                                    ForEach(PaymentTermPreset.allCases) { term in
+                                        Text(term.rawValue).tag(term)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                HStack {
+                                    Text("Fällig am")
+                                    Spacer()
+                                    Text(computedDueDate.formatted(date: .numeric, time: .omitted))
+                                        .foregroundStyle(Theme.textSecondary)
+                                }
+                                .font(.system(size: 12))
+                            }
+                        }
+
+                        DSCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Beträge").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                                TextField("Betrag (Netto)", text: $netInput).dsInput()
+                                Picker("MwSt", selection: $vatRate) {
+                                    Text("19 %").tag(0.19)
+                                    Text("7 %").tag(0.07)
+                                    Text("0 %").tag(0.0)
+                                }
+                                .pickerStyle(.segmented)
+
+                                HStack {
+                                    stat("Netto", viewModel.formatCurrency(netAmount))
+                                    stat("MwSt", viewModel.formatCurrency(vatAmount))
+                                    stat("Brutto", viewModel.formatCurrency(grossAmount))
+                                }
+                            }
                         }
                     }
                 }
+
+                HStack {
+                    Spacer()
+                    Button("Abbrechen") { dismiss() }.dsSecondaryButton()
+                    Button("Rechnung erstellen") { save() }
+                        .dsPrimaryButton()
+                        .disabled(saveDisabled)
+                }
             }
             .padding(18)
-            .frame(width: 560)
+            .frame(width: 860, height: 760)
         }
+        .sheet(isPresented: $showCreateCustomerModal) {
+            CustomerFormModal(customersStore: customersStore)
+        }
+        .fileImporter(isPresented: $showPDFImporter, allowedContentTypes: [.pdf], allowsMultipleSelection: false) { result in
+            if case .success(let urls) = result {
+                selectedPDFURL = urls.first
+            }
+        }
+        .onAppear {
+            issuedAt = defaultIssuedAt
+            applyCustomerLookup()
+        }
+    }
+
+    private func stat(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.textSecondary)
+            Text(value)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .monospacedDigit()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func applyCustomerLookup() {
+        guard let customer = foundCustomer else { return }
+        company = customer.name
+        firstName = ""
+        lastName = ""
+        street = customer.address
+        city = customer.city
+        email = customer.email
+        phone = customer.phone
+    }
+
+    private func openSelectedPDF() {
+#if canImport(AppKit)
+        guard let selectedPDFURL else { return }
+        NSWorkspace.shared.open(selectedPDFURL)
+#endif
+    }
+
+    private func save() {
+        let pdfFileName = selectedPDFURL.flatMap { viewModel.storePDFForInvoice(from: $0) }
+
+        var invoice = InvoiceEntry(
+            title: documentNumber,
+            source: selectedPDFURL == nil ? .manual : .pdfImport,
+            type: invoiceType,
+            netAmount: netAmount,
+            vatRate: vatRate,
+            isPaid: paymentTerm.marksPaid,
+            issuedAt: issuedAt,
+            paidAt: paymentTerm.marksPaid ? issuedAt : nil,
+            referenceNumber: documentType == .invoice ? nil : documentNumber,
+            invoiceNumber: documentType == .invoice ? documentNumber : nil,
+            customerNumber: customerNumber.isEmpty ? nil : customerNumber,
+            ustIdNr: vatId.isEmpty ? nil : vatId,
+            taxNumber: taxNumber.isEmpty ? nil : taxNumber,
+            customerName: customerDisplayName,
+            customerAddress: customerAddressCombined.isEmpty ? nil : customerAddressCombined,
+            customerPhone: phone.isEmpty ? nil : phone,
+            customerEmail: email.isEmpty ? nil : email,
+            paymentTermDays: paymentTerm.days,
+            paymentTermsText: paymentTerm.rawValue,
+            pdfStoredFileName: pdfFileName
+        )
+
+        if paymentTerm.marksPaid {
+            invoice.paymentTermDays = 0
+        }
+
+        viewModel.addInvoice(invoice)
+        dismiss()
     }
 }
 
@@ -549,21 +867,6 @@ private extension Array {
     subscript(safe index: Int) -> Element? {
         guard indices.contains(index) else { return nil }
         return self[index]
-    }
-}
-
-private struct MonthlyOpenRow: Identifiable {
-    let id = UUID()
-    let monthStart: Date
-    let totalCount: Int
-    let totalAmount: Double
-    let openCount: Int
-    let paidCount: Int
-
-    var label: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM"
-        return formatter.string(from: monthStart)
     }
 }
 
