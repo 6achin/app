@@ -4,33 +4,83 @@ struct OrdersPage: View {
     @ObservedObject var router: BAAppRouter
     @ObservedObject var ordersStore: OrdersStore
 
+    @State private var query = ""
+    @State private var selectedDate: Date? = nil
+    @State private var showCreate = false
+
+    private var filtered: [OrderItem] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return ordersStore.orders }
+        return ordersStore.orders.filter {
+            [$0.customerLabel, $0.status].joined(separator: " ").lowercased().contains(q)
+        }
+    }
+
     var body: some View {
         AppShell {
             VStack(alignment: .leading, spacing: 12) {
-                PageHeader(title: "Aufträge", subtitle: "Orders to process: \(ordersStore.orders.count)", onBack: { router.setTop(.dashboard) })
-                ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(ordersStore.orders) { order in
-                            Button {
-                                router.push(.orderDetail(order.id))
-                            } label: {
-                                DSCard {
-                                    HStack {
-                                        Text(order.customerLabel)
-                                        Spacer()
-                                        Text("\(order.lines.count) Pos.")
-                                        Text(String(format: "€ %.2f", order.grossTotal)).monospacedDigit()
+                PageHeader(title: "Bestellungen", subtitle: "Alle Bestellungen", onBack: { router.setTop(.dashboard) })
+
+                HStack(spacing: 10) {
+                    TextField("Suche Bestellungen (Nr., Kunde, Firma, Email, Telefon)", text: $query)
+                        .dsInput()
+
+                    DSCalendarFilter(selectedDate: $selectedDate)
+
+                    Button {
+                        showCreate = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .dsPrimaryButton()
+                    .help("Neue Bestellung")
+                }
+
+                if filtered.isEmpty {
+                    DSCard {
+                        VStack(spacing: 10) {
+                            Image(systemName: "doc.text")
+                                .font(.system(size: 28, weight: .semibold))
+                                .foregroundStyle(Theme.textSecondary)
+                            Text("Noch keine Bestellungen")
+                                .font(.headline)
+                                .foregroundStyle(Theme.textPrimary)
+                            Text("Erstelle deine erste Bestellung über \"+\" oder den Button \"Neue Bestellung\" im Dashboard.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 220)
+                    }
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 8) {
+                            ForEach(filtered) { order in
+                                Button {
+                                    router.push(.orderDetail(order.id))
+                                } label: {
+                                    DSCard {
+                                        HStack {
+                                            Text(order.customerLabel)
+                                            Spacer()
+                                            Text("\(order.lines.count) Pos.")
+                                            Text(String(format: "€ %.2f", order.grossTotal)).monospacedDigit()
+                                        }
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(Theme.textPrimary)
                                     }
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(Theme.textPrimary)
                                 }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
+
+                Spacer()
             }
             .padding(18)
+        }
+        .sheet(isPresented: $showCreate) {
+            NewOrderModal()
         }
     }
 }
@@ -45,7 +95,7 @@ struct OrderDetailPage: View {
     var body: some View {
         AppShell {
             VStack(alignment: .leading, spacing: 12) {
-                PageHeader(title: "Auftrag Detail", subtitle: order?.customerLabel, onBack: { router.pop() })
+                PageHeader(title: "Bestellung", subtitle: order?.customerLabel, onBack: { router.pop() })
                 if let order {
                     DSCard {
                         VStack(alignment: .leading, spacing: 6) {

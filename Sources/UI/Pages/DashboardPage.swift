@@ -49,6 +49,7 @@ struct DashboardPage: View {
     @ObservedObject var debtsStore: DebtsStore
     @ObservedObject var ordersStore: OrdersStore
     @ObservedObject var customersStore: CustomersStore
+    @ObservedObject var warehouseStore: WarehouseStore
     @Environment(\.uiDensityMode) private var density
 
     @AppStorage("dashboardSelectedMonth") private var selectedMonthKey = ""
@@ -98,7 +99,9 @@ struct DashboardPage: View {
     }()
 
     private var kpiCards: [MetricType] {
-        [.umsatz, .umsatzsteuer, .rechnungenOffen, .einnahmen, .fixkosten]
+        // We migrate the "Rechnungen offen" entry to the Orders flow.
+        // Keep the KPI grid but drop the open-invoices KPI.
+        [.umsatz, .umsatzsteuer, .einnahmen, .fixkosten]
     }
 
     var body: some View {
@@ -112,21 +115,31 @@ struct DashboardPage: View {
                         Button { open(type) } label: { kpiCard(type) }
                             .buttonStyle(.plain)
                     }
+                    Button {
+                        router.setTop(.auftraege)
+                    } label: {
+                        ordersKpiCard
+                    }
+                    .buttonStyle(.plain)
                     debtCard
                 }
 
                 DSCard {
                     Button {
-                        router.setTop(.auftraege)
+                        router.setTop(.lager)
                     } label: {
                         HStack {
-                            Text("Orders to process")
-                                .font(.headline)
-                                .foregroundStyle(Theme.textPrimary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Lager")
+                                    .font(.headline)
+                                    .foregroundStyle(Theme.textPrimary)
+                                Text("Artikel: \(warehouseStore.items.count) · Lieferungen: \(warehouseStore.deliveries.count)")
+                                    .font(.footnote)
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
                             Spacer()
-                            Text("\(ordersStore.orders.count)")
-                                .font(.title3.weight(.semibold))
-                                .foregroundStyle(Theme.textPrimary)
+                            Image(systemName: "shippingbox")
+                                .foregroundStyle(Theme.textSecondary)
                         }
                     }
                     .buttonStyle(.plain)
@@ -170,9 +183,7 @@ struct DashboardPage: View {
                     .foregroundStyle(Theme.textSecondary)
             }
             Spacer()
-            Button("Neuer Auftrag") { showOrderModal = true }
-                .dsSecondaryButton()
-            Button("Neue Rechnung") { router.push(.addInvoice) }
+            Button("Neue Bestellung") { showOrderModal = true }
                 .dsPrimaryButton()
         }
     }
@@ -259,6 +270,51 @@ struct DashboardPage: View {
             .frame(maxWidth: .infinity, minHeight: density == .compact ? 110 : 124, alignment: .topLeading)
             .contentShape(Rectangle())
         }
+    }
+
+    private var ordersKpiCard: some View {
+        let selectedStart = viewModel.startOfMonth(for: selectedMonth)
+        let previousMonth = Calendar.current.date(byAdding: .month, value: -1, to: selectedStart) ?? selectedStart
+
+        let currentMonthOrders = ordersStore.orders.filter { viewModel.startOfMonth(for: $0.createdAt) == selectedStart }
+        let previousMonthOrders = ordersStore.orders.filter { viewModel.startOfMonth(for: $0.createdAt) == previousMonth }
+        let openCount = currentMonthOrders.filter { isOpenOrderStatus($0.status) }.count
+
+        let trendValue = mom(current: Double(currentMonthOrders.count), previous: Double(previousMonthOrders.count))
+        let trend = MoMTrend(value: trendValue)
+
+        return DSCard {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Bestellungen")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.textSecondary)
+                Text("\(currentMonthOrders.count)")
+                    .font(.system(size: density == .compact ? 34 : 40, weight: .bold, design: .rounded))
+                    .foregroundStyle(Theme.textPrimary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+
+                HStack {
+                    Text("Offen: \(openCount) · Gesamt: \(ordersStore.orders.count)")
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer(minLength: 8)
+                    Text(trend.label)
+                        .foregroundStyle(trend.color)
+                        .lineLimit(1)
+                }
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.textSecondary)
+            }
+            .frame(maxWidth: .infinity, minHeight: density == .compact ? 110 : 124, alignment: .topLeading)
+            .contentShape(Rectangle())
+        }
+    }
+
+    private func isOpenOrderStatus(_ status: String) -> Bool {
+        let s = status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return !["done", "completed", "closed", "shipped"].contains(s)
     }
 
     private var debtCard: some View {
@@ -474,7 +530,7 @@ struct OrderCreateModal: View {
     var body: some View {
         AppShell {
             VStack(alignment: .leading, spacing: 10) {
-                HStack { Text("Neuer Auftrag").font(.headline); Spacer(); Button("✕") { dismiss() }.dsSecondaryButton() }
+                HStack { Text("Neue Bestellung").font(.headline); Spacer(); Button("✕") { dismiss() }.dsSecondaryButton() }
                 DSCard {
                     VStack(spacing: 10) {
                         TextField("Kunden-Nr.", text: $customerNumber)

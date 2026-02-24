@@ -104,28 +104,37 @@ struct InvoicesPage: View {
     }
 
     private var filtered: [InvoiceEntry] {
-        let query = debouncedSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return viewModel.invoices.filter { invoice in
-            guard Calendar.current.isDate(viewModel.startOfMonth(for: invoice.issuedAt), equalTo: selectedMonth, toGranularity: .month) else {
-                return false
-            }
+        // Keep this intentionally simple to avoid Swift type-checker timeouts.
+        let trimmedQuery = debouncedSearch.trimmingCharacters(in: .whitespacesAndNewlines)
+        let query = trimmedQuery.lowercased()
+        let monthKey = selectedMonthIdentity
+        let invoices = viewModel.invoices
 
+        return invoices.filter { invoice in
+            guard matchesSelectedMonth(invoice.issuedAt, monthKey: monthKey) else { return false }
             guard !query.isEmpty else { return true }
-            let searchable = [
-                invoice.invoiceNumber ?? "",
-                invoice.referenceNumber ?? "",
-                invoice.customerName ?? "",
-                invoice.customerPhone ?? "",
-                invoice.customerEmail ?? "",
-                invoice.customerAddress ?? "",
-                invoice.customerNumber ?? "",
-                invoice.title,
-                invoice.paymentTermsText ?? ""
-            ]
-            .joined(separator: " ")
-            .lowercased()
-            return searchable.contains(query)
+            return invoiceSearchText(invoice).contains(query)
         }
+    }
+
+    private func matchesSelectedMonth(_ date: Date, monthKey: InvoiceMonthKey) -> Bool {
+        let comps = Calendar.current.dateComponents([.year, .month], from: date)
+        return (comps.year == monthKey.year) && (comps.month == monthKey.month)
+    }
+
+    private func invoiceSearchText(_ invoice: InvoiceEntry) -> String {
+        var parts: [String] = []
+        parts.reserveCapacity(10)
+        parts.append(invoice.invoiceNumber ?? "")
+        parts.append(invoice.referenceNumber ?? "")
+        parts.append(invoice.customerName ?? "")
+        parts.append(invoice.customerPhone ?? "")
+        parts.append(invoice.customerEmail ?? "")
+        parts.append(invoice.customerAddress ?? "")
+        parts.append(invoice.customerNumber ?? "")
+        parts.append(invoice.title)
+        parts.append(invoice.paymentTermsText ?? "")
+        return parts.joined(separator: " ").lowercased()
     }
 
     private var suggestions: [String] {

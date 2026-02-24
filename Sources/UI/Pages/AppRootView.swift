@@ -10,6 +10,7 @@ struct AppRootView: View {
     @StateObject private var debtsStore = DebtsStore()
     @StateObject private var ordersStore = OrdersStore()
     @StateObject private var customersStore = CustomersStore()
+    @StateObject private var warehouseStore = WarehouseStore()
     @AppStorage("uiDensityMode") private var densityRaw = UIDensityMode.comfortable.rawValue
     @AppStorage("inactivityTimeoutMinutes") private var inactivityTimeoutMinutes = 5
 
@@ -255,7 +256,7 @@ struct AppRootView: View {
     private func routeView(_ route: BAAppRoute) -> some View {
         switch route {
         case .dashboard:
-            DashboardPage(router: router, viewModel: dashboard, debtsStore: debtsStore, ordersStore: ordersStore, customersStore: customersStore)
+            DashboardPage(router: router, viewModel: dashboard, debtsStore: debtsStore, ordersStore: ordersStore, customersStore: customersStore, warehouseStore: warehouseStore)
         case .invoices:
             InvoicesPage(router: router, viewModel: dashboard, customersStore: customersStore)
         case .invoiceDetail(let id):
@@ -270,6 +271,10 @@ struct AppRootView: View {
             OrdersPage(router: router, ordersStore: ordersStore)
         case .orderDetail(let id):
             OrderDetailPage(router: router, ordersStore: ordersStore, orderID: id)
+        case .warehouse:
+            WarehousePage(router: router, store: warehouseStore)
+        case .deliveryDetail(let id):
+            DeliveryDetailPage(router: router, store: warehouseStore, deliveryID: id)
         case .customers:
             CustomersPage(router: router, customersStore: customersStore)
         case .customerDetail(let id):

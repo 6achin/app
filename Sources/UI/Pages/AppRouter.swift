@@ -10,6 +10,7 @@ enum BATopDestination: String, CaseIterable, Identifiable {
     case einnahmen = "Einnahmen"
     case schulden = "Schulden"
     case auftraege = "Aufträge"
+    case lager = "Lager"
     case kunden = "Kunden"
 
     var id: String { rawValue }
@@ -26,6 +27,9 @@ enum BAAppRoute: Hashable {
 
     case orders
     case orderDetail(UUID)
+
+    case warehouse
+    case deliveryDetail(UUID)
 
     case customers
     case customerDetail(UUID)
@@ -119,6 +123,7 @@ final class BAAppRouter: ObservableObject {
         case .einnahmen: return .income
         case .schulden: return .debts
         case .auftraege: return .orders
+        case .lager: return .warehouse
         case .kunden: return .customers
         }
     }
